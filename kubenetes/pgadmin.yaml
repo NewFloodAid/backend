@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-volume-claim
+  namespace: onspot
+spec:
+  storageClassName: managed-csi
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: onspot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: [ "sh", "-c", "chown -R 5050:5050 /var/lib/pgadmin" ]
+          volumeMounts:
+            - mountPath: "/var/lib/pgadmin"
+              name: pgadmin-storage
+      containers:
+        - name: pgadmin
+          image: dpage/pgadmin4
+          ports:
+            - containerPort: 80
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: admin@gmail.com
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: admin
+          volumeMounts:
+            - mountPath: "/var/lib/pgadmin"
+              name: pgadmin-storage
+      volumes:
+        - name: pgadmin-storage
+          persistentVolumeClaim:
+            claimName: pgadmin-volume-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  namespace: onspot
+spec:
+  type: ClusterIP
+  selector:
+    app: pgadmin
+  ports:
+    - protocol: TCP
+      port: 8888
+      targetPort: 80

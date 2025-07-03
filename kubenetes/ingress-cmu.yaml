@@ -1,0 +1,52 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: onspot-ingress
+  namespace: onspot
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "64k"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - onspot.se.cpe.eng.cmu.ac.th
+        - onspot-minio.se.cpe.eng.cmu.ac.th
+      secretName: onspot-tls
+  rules:
+    - host: onspot.se.cpe.eng.cmu.ac.th
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: onspot-service
+                port:
+                  number: 8080
+          - path: /pgadmin
+            pathType: Prefix
+            backend:
+              service:
+                name: pgadmin
+                port:
+                  number: 8888
+    - host: onspot-minio.se.cpe.eng.cmu.ac.th
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+          - path: /ui
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9001

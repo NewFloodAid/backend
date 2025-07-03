@@ -1,0 +1,7 @@
+
+
+
+az ad sp create-for-rbac --name github-action-onspot --scope /subscriptions/1f28e981-8a90-412d-8918-499aeab2285b/resourceGroups/Nono-RG --role Contributor --sdk-auth
+kubectl rollout restart deployment onspot-app -n onspot
+
+kubectl rollout restart deployment minio -n onspot

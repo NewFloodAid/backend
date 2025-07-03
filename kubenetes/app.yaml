@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onspot-app
+  namespace: onspot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: onspot-app
+  template:
+    metadata:
+      labels:
+        app: onspot-app
+    spec:
+      containers:
+        - name: onspot-app
+          image: rehunt671/onspot-app:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: MINIO_ENDPOINT
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: MINIO_SECRET_KEY
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: onspot
+  name: onspot-service
+spec:
+  type: ClusterIP
+  selector:
+    app: onspot-app
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
