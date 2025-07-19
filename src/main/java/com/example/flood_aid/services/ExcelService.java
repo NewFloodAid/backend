@@ -23,15 +23,9 @@ public class ExcelService {
             "ต้องการขนย้ายผู้ป่วยติดเตียง(คน)", "ต้องการขนย้ายผู้สูงอายุ(คน)", "ต้องการอาหาร น้ำดื่ม(ชุด)",
             "รายละเอียด", "ที่อยู่", "ตำบล", "อำเภอ", "จังหวัด", "เบอร์โทร"
     };
-    private static final Map<Integer, String> PRIORITY_MAP = Map.of(
-            0, "เสร็จสิ้น",
-            1, "ฉุกเฉิน",
-            2, "เร่งด่วน",
-            3, "ไม่เร่งด่วน"
-    );
 
-    public byte[] exportReportsToExcel(ArrayList<Integer> priorities, Timestamp startDate, Timestamp endDate, UUID userId) throws IOException {
-        List<Report> reports = reportRepository.findReportsByConditions(userId, priorities, startDate, DateUtils.setEndOfDay(endDate), false);
+    public byte[] exportReportsToExcel(Timestamp startDate, Timestamp endDate, UUID userId) throws IOException {
+        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate), false);
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("รายงานผู้ขอความช่วยเหลือ");
             createHeaderRow(sheet, workbook);
@@ -56,24 +50,21 @@ public class ExcelService {
         CellStyle commonStyle = getCommonCellStyle(workbook);
 
         int[] summaryCounts = new int[5];
-        int[] priorityCounts = new int[4];
         int rowNum = 1;
 
         for (Report report : reports) {
             Row row = sheet.createRow(rowNum++);
-            populateReportRow(row, report, dateStyle, commonStyle, summaryCounts, priorityCounts);
+            populateReportRow(row, report, dateStyle, commonStyle, summaryCounts);
         }
-        appendSummaryRows(sheet, rowNum, commonStyle, summaryCounts, priorityCounts);
+        appendSummaryRows(sheet, rowNum, commonStyle, summaryCounts);
         autoSizeColumns(sheet);
     }
 
-    private void populateReportRow(Row row, Report report, CellStyle dateStyle, CellStyle commonStyle, int[] summaryCounts, int[] priorityCounts) {
+    private void populateReportRow(Row row, Report report, CellStyle dateStyle, CellStyle commonStyle, int[] summaryCounts) {
         row.createCell(0).setCellValue(Date.from(report.getCreatedAt().toInstant()));
         row.getCell(0).setCellStyle(dateStyle);
 
         row.createCell(1).setCellValue(report.getFirstName() + " " + report.getLastName());
-        row.createCell(2).setCellValue(PRIORITY_MAP.getOrDefault(report.getPriority(), "ไม่ทราบระดับความสำคัญ"));
-        priorityCounts[report.getPriority()]++;
 
         if (report.getReportAssistances() != null) {
             for (var assistance : report.getReportAssistances()) {
@@ -100,25 +91,16 @@ public class ExcelService {
         }
     }
 
-    private void appendSummaryRows(Sheet sheet, int startRow, CellStyle style, int[] summaryCounts, int[] priorityCounts) {
-        String prioritySummary = "ฉุกเฉิน: " + priorityCounts[1] + " | เร่งด่วน: " + priorityCounts[2] + " | ไม่เร่งด่วน: " + priorityCounts[3] + " | เสร็จสิ้น: " + priorityCounts[0];
-
+    private void appendSummaryRows(Sheet sheet, int startRow, CellStyle style, int[] summaryCounts) {
         Row priorityRow = sheet.createRow(startRow);
         Cell priorityLabelCell = priorityRow.createCell(0);
         priorityLabelCell.setCellValue("สรุป");
         priorityLabelCell.setCellStyle(style);
 
-
-        Cell priorityValueCell = priorityRow.createCell(2);
-        priorityValueCell.setCellValue(prioritySummary);
-        priorityValueCell.setCellStyle(style);
-
-
         for (int i = 0; i < summaryCounts.length; i++) {
             Cell labelCell = priorityRow.createCell(3+i);
             labelCell.setCellValue(summaryCounts[i]);
             labelCell.setCellStyle(style);
-
         }
     }
 

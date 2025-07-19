@@ -5,13 +5,13 @@ VALUES
 ('PROCESS', 1 , 2),
 ('SUCCESS', 4 , 4);
 
-INSERT INTO assistance_types (name, priority, unit)
+INSERT INTO assistance_types (name, unit)
 VALUES
-('มีผู้บาดเจ็บหนัก', 1, 'คน'),
-('มีผู้บาดเจ็บ', 1, 'คน'),
-('ต้องการขนย้ายผู้ป่วยติดเตียง', 2, 'คน'),
-('ต้องการขนย้ายผู้สูงอายุ', 2, 'คน'),
-('ต้องการอาหาร - น้ำดื่ม', 3, 'ชุด');
+('มีผู้บาดเจ็บหนัก', 'คน'),
+('มีผู้บาดเจ็บ', 'คน'),
+('ต้องการขนย้ายผู้ป่วยติดเตียง', 'คน'),
+('ต้องการขนย้ายผู้สูงอายุ', 'คน'),
+('ต้องการอาหาร - น้ำดื่ม', 'ชุด');
 
 
 INSERT INTO image_categories (name, file_limit)
@@ -31,9 +31,9 @@ INSERT INTO "locations" (latitude, longitude, address, sub_district, district, p
 VALUES
     (13.736717, 100.523186, 'Bangkok, Thailand', 'Rattanakosin', 'Phra Nakhon', 'Bangkok', '10200');
 
-INSERT INTO "reports" (user_id, first_name, last_name, location_id, main_phone_number, reserve_phone_number, priority, report_status_id, additional_detail, created_at, updated_at)
+INSERT INTO "reports" (user_id, first_name, last_name, location_id, main_phone_number, reserve_phone_number, report_status_id, additional_detail, created_at, updated_at)
 VALUES
-    ('e2fd4e6c-7e6f-4f8b-85bb-83c6d40efca2', 'John', 'Doe', 1, '1234567890', '0987654321', 2, 2, 'Flood emergency in the area, requires immediate assistance.', NOW(), NOW());
+    ('e2fd4e6c-7e6f-4f8b-85bb-83c6d40efca2', 'John', 'Doe', 1, '1234567890', '0987654321', 2, 'Flood emergency in the area, requires immediate assistance.', NOW(), NOW());
 
 INSERT INTO "report_assistances" (report_id, assistance_type_id, quantity, is_active)
 VALUES

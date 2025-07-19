@@ -41,9 +41,6 @@ public class Report {
     @Column(name = "reserve_phone_number")
     private String reservePhoneNumber;
 
-    @Column(name = "priority")
-    private Integer priority;
-
     @OneToOne()
     @JoinColumn(name = "report_status_id")
     private ReportStatus reportStatus;
@@ -70,15 +67,4 @@ public class Report {
 
     @OneToMany(cascade = CascadeType.ALL,mappedBy = "report")
     private List<Image> images;
-
-    public void sortReportAssistancesByPriorityDesc() {
-        if (this.reportAssistances != null) {
-            Collections.sort(this.reportAssistances, new Comparator<ReportAssistance>() {
-                @Override
-                public int compare(ReportAssistance a1, ReportAssistance a2) {
-                    return Integer.compare(a2.getAssistanceType().getPriority(), a1.getAssistanceType().getPriority());
-                }
-            });
-        }
-    }
 }

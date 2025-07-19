@@ -60,16 +60,16 @@ public class ReportController {
             @RequestParam(required = false) String district,
             @RequestParam(required = false) String province,
             @RequestParam(required = false) String postalCode,
-            @RequestParam(required = false) ArrayList<Integer> priorities,
             @RequestParam(required = false) Long reportStatusId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
-            @RequestParam(required = false) UUID userId
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) Long assistanceTypeId
     ) {
         Timestamp startTimestamp = (startDate != null) ? new Timestamp(startDate.getTime()) : Timestamp.valueOf("1970-01-01 00:00:00");;
         Timestamp endTimestamp = (endDate != null) ? new Timestamp(endDate.getTime()) : Timestamp.valueOf("2100-01-01 00:00:00");
         List<Report> reports = reportService.filterReports(
-                subdistrict, district, province, postalCode, priorities, reportStatusId, startTimestamp, endTimestamp, sourceApp, userId
+                subdistrict, district, province, postalCode, reportStatusId, startTimestamp, endTimestamp, sourceApp, userId, assistanceTypeId
         );
 
         return ResponseEntity.ok(reports);

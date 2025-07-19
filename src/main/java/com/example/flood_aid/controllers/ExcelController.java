@@ -25,7 +25,6 @@ public class ExcelController {
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportReportsToExcel(
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
-            @RequestParam(required = false) ArrayList<Integer> priorities,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @RequestParam(required = false) UUID userId
@@ -36,7 +35,7 @@ public class ExcelController {
             Timestamp endTimestamp = (endDate != null) ? new Timestamp(endDate.getTime()) : Timestamp.valueOf("2100-01-01 00:00:00");
             // เรียกใช้ Service เพื่อสร้างไฟล์ Excel
             byte[] excelData = exportService.exportReportsToExcel(
-                    priorities, startTimestamp, endTimestamp, userId
+                    startTimestamp, endTimestamp, userId
             );
 
             // ส่ง Response ให้ดาวน์โหลดไฟล์ Excel

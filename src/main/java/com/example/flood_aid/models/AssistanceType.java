@@ -19,9 +19,6 @@ public class AssistanceType {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "priority")
-    private Integer priority;
-
     @Column(name = "unit")
     private String unit;
 

@@ -29,35 +29,6 @@ public class ReportService {
     private ReportStatusRepository reportStatusRepository;
     private ImageCategoryRepository imageTypeRepository;
 
-    public void calculatePriority(Report report) {
-        if (report.getReportAssistances() == null || report.getReportAssistances().isEmpty()) {
-            throw new IllegalStateException("Error: This report does not have any assistance.");
-        }
-
-        if(report.getReportStatus() != null && report.getReportStatus().getStatus() == Status.REJECTED){
-            report.setPriority(4);
-            return;
-        }
-
-        Integer minPriority = null;
-
-        for (ReportAssistance assistance : report.getReportAssistances()) {
-            if (Boolean.TRUE.equals(assistance.getIsActive())) {
-                int priority = assistance.getAssistanceType().getPriority();
-
-                if (minPriority == null || priority < minPriority) {
-                    minPriority = priority;
-                }
-            }
-        }
-
-        if (minPriority == null) {
-            minPriority = 0;
-        }
-
-        report.setPriority(minPriority);
-    }
-
     public void setReportStatusForReport(Report report) {
         report.setReportStatus(calculateReportStatus(report));
     }
@@ -68,16 +39,11 @@ public class ReportService {
             setReportAssistancesForReport(report);
             setImagesForReport(report, imageParams);
             setReportStatusForReport(report);
-            setPriorityForReport(report);
             return reportRepository.save(report);
         } catch (Exception e) {
             uploadService.deleteImages("images", report.getImages());
             throw new RuntimeException("Failed to save report: " + e.getMessage(), e);
         }
-    }
-
-    private void setPriorityForReport(Report report){
-        calculatePriority(report);
     }
 
     private ReportStatus calculateReportStatus(Report report) {
@@ -192,7 +158,6 @@ public class ReportService {
 
             setImagesForReport(existingReport, imageParams);
             setReportStatusForReport(existingReport);
-            setPriorityForReport(existingReport);
 
             return reportRepository.save(existingReport);
         } else {
@@ -221,17 +186,20 @@ public class ReportService {
         String district,
         String province,
         String postalCode,
-        ArrayList<Integer> priorities,
         Long reportStatusId,
         Timestamp startDate,
         Timestamp endDate,
         String sourceApp,
-        UUID userId
+        UUID userId,
+        Long assistanceTypeId // back to single
     ) {
 
-        List<Report> reports = reportRepository.findReportsByConditions(userId, priorities, startDate, DateUtils.setEndOfDay(endDate) , true);
+        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate) , true);
         reports = reportRepository.filterReportsByLocation(reports, subdistrict, district, province, postalCode);
         reports = reportRepository.filterReportsByStatus(reports, reportStatusId , sourceApp);
+        if (assistanceTypeId != null) {
+            reports = reportRepository.filterReportsByAssistanceType(reports, assistanceTypeId);
+        }
         getImageURLForReports(reports);
         return reports;
     }
