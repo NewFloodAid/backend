@@ -25,7 +25,7 @@ public class ExcelService {
     };
 
     public byte[] exportReportsToExcel(Timestamp startDate, Timestamp endDate, UUID userId) throws IOException {
-        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate), false);
+        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate));
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("รายงานผู้ขอความช่วยเหลือ");
             createHeaderRow(sheet, workbook);

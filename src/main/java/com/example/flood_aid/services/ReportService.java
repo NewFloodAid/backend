@@ -37,7 +37,7 @@ public class ReportService {
     public Report createReport(Report report , Map<String, List<MultipartFile>> imageParams) {
         try {
             setReportAssistancesForReport(report);
-            setImagesForReport(report, imageParams);
+            setImagesForReport(report, imageParams, "BEFORE");
             setReportStatusForReport(report);
             return reportRepository.save(report);
         } catch (Exception e) {
@@ -53,8 +53,6 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException("ReportStatus with status 'PROCESS' not found"));
         ReportStatus successReportStatus = reportStatusRepository.findByStatus(Status.SUCCESS)
                 .orElseThrow(() -> new IllegalArgumentException("ReportStatus with status 'SUCCESS' not found"));
-        ReportStatus rejectedReportStatus = reportStatusRepository.findByStatus(Status.REJECTED)
-                .orElseThrow(() -> new IllegalArgumentException("ReportStatus with status 'REJECTED' not found"));
         boolean isAnyReportAssistanceActive = report.getReportAssistances().stream().anyMatch(ReportAssistance::getIsActive);
 
         if (report.getReportStatus() == null) {
@@ -66,10 +64,6 @@ public class ReportService {
         if (report.getReportStatus().equals(processedReportStatus) && !isAnyReportAssistanceActive) {
             return successReportStatus;
         }
-        if(report.getReportStatus().equals(rejectedReportStatus)){
-            return rejectedReportStatus;
-        }
-
         return report.getReportStatus() ;
     }
 
@@ -129,6 +123,57 @@ public class ReportService {
                             .report(report)
                             .name(uniqueFileName)
                             .imageCategory(imageType)
+                            .phase("BEFORE")
+                            .build();
+                    images.add(image);
+                }
+            }
+        }
+
+        if (report.getImages() == null) {
+            report.setImages(images);
+        } else {
+            report.getImages().addAll(images);
+        }
+    }
+
+    private void setImagesForReport(Report report, Map<String, List<MultipartFile>> imageParams, String phase) {
+        List<Image> images = new ArrayList<>();
+
+        for (java.util.Map.Entry<String, List<MultipartFile>> entry : imageParams.entrySet()) {
+            String paramName = entry.getKey();
+            List<MultipartFile> files = entry.getValue();
+
+            if (files != null) {
+                ImageCategory imageType = imageTypeRepository.findByName(paramName)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid image type: " + paramName));
+
+                if (files.size() > imageType.getFileLimit()) {
+                    throw new IllegalArgumentException("File limit exceeded for image type: " + paramName);
+                }
+
+                for (MultipartFile file : files) {
+                    String bucketName = "images";
+                    String originalFileName = file.getOriginalFilename();
+                    String extension = "";
+
+                    if (originalFileName != null && originalFileName.contains(".")) {
+                        extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                    }
+
+                    String uniqueFileName = UUID.randomUUID() + extension;
+
+                    try (InputStream fileStream = file.getInputStream()) {
+                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(), file.getContentType());
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error uploading image to MinIO: " + e.getMessage());
+                    }
+
+                    Image image = Image.builder()
+                            .report(report)
+                            .name(uniqueFileName)
+                            .imageCategory(imageType)
+                            .phase(phase)
                             .build();
                     images.add(image);
                 }
@@ -156,7 +201,12 @@ public class ReportService {
                 image.setReport(existingReport);
             }
 
-            setImagesForReport(existingReport, imageParams);
+            // Determine phase for new images
+            String phase = "BEFORE";
+            if (existingReport.getReportStatus() != null && existingReport.getReportStatus().getStatus() == Status.SENT) {
+                phase = "AFTER";
+            }
+            setImagesForReport(existingReport, imageParams, phase);
             setReportStatusForReport(existingReport);
 
             return reportRepository.save(existingReport);
@@ -194,7 +244,7 @@ public class ReportService {
         Long assistanceTypeId // back to single
     ) {
 
-        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate) , true);
+        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate));
         reports = reportRepository.filterReportsByLocation(reports, subdistrict, district, province, postalCode);
         reports = reportRepository.filterReportsByStatus(reports, reportStatusId , sourceApp);
         if (assistanceTypeId != null) {

@@ -14,17 +14,12 @@ import java.util.UUID;
 public interface ReportRepository extends JpaRepository<Report, Long> {
 
     @Query("SELECT r FROM Report r " +
-            "WHERE (:priorities IS NOT NULL AND (r.priority IN :priorities ) OR r.priority = 0  OR r.priority = 4) AND " +
-            "(:userId IS NULL OR r.userId = :userId) AND " +
-            "r.createdAt BETWEEN :startDate AND :endDate AND" +
-            "((:isContainRejectedReport = true AND r.reportStatus.id IN (1,2,3,4)) OR " +
-            " (:isContainRejectedReport = false AND r.reportStatus.id IN (2,3,4)))")
+            "WHERE (:userId IS NULL OR r.userId = :userId) AND " +
+            "r.createdAt BETWEEN :startDate AND :endDate")
     List<Report> findReportsByConditions(
             @Param("userId") UUID userId,
-            @Param("priorities") ArrayList<Integer> priorities,
             @Param("startDate") Timestamp startDate,
-            @Param("endDate") Timestamp endDate,
-            @Param("isContainRejectedReport") boolean isContainRejectedReport
+            @Param("endDate") Timestamp endDate
     );
 
     @Query("SELECT r FROM Report r " +
@@ -52,6 +47,12 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("reports") List<Report> reports,
             @Param("reportStatusId") Long reportStatusId,
             @Param("sourceApp") String sourceApp
+    );
+
+    @Query("SELECT DISTINCT r FROM Report r JOIN r.reportAssistances ra WHERE r IN :reports AND (:assistanceTypeId IS NULL OR (ra.assistanceType.id = :assistanceTypeId AND ra.isActive = true))")
+    List<Report> filterReportsByAssistanceType(
+        @Param("reports") List<Report> reports,
+        @Param("assistanceTypeId") Long assistanceTypeId
     );
 
 }
