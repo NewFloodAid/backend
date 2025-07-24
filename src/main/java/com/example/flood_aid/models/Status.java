@@ -6,7 +6,7 @@ public enum Status {
     PENDING,
     PROCESS,
     SUCCESS,
-    REJECTED;
+    SENT;
 
     @JsonCreator
     public static Status fromString(String value) {

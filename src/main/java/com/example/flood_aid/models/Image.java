@@ -22,6 +22,9 @@ public class Image {
     @Column(name = "name")
     private String name;
 
+    @Column(name = "phase")
+    private String phase; // 'BEFORE' or 'AFTER'
+
     @ManyToOne
     @JoinColumn(name = "image_category_id")
     private ImageCategory imageCategory;

@@ -1,17 +1,19 @@
 INSERT INTO report_status (status, user_ordering_number , government_ordering_number)
 VALUES
-('REJECTED', 3 , 3),
+('SENT', 3 , 3),
 ('PENDING', 2 , 1),
 ('PROCESS', 1 , 2),
 ('SUCCESS', 4 , 4);
 
 INSERT INTO assistance_types (name, unit)
 VALUES
-('มีผู้บาดเจ็บหนัก', 'คน'),
-('มีผู้บาดเจ็บ', 'คน'),
-('ต้องการขนย้ายผู้ป่วยติดเตียง', 'คน'),
-('ต้องการขนย้ายผู้สูงอายุ', 'คน'),
-('ต้องการอาหาร - น้ำดื่ม', 'ชุด');
+('ตัดหญ้า - ต้นไม้', 'งาน'),
+('ขุดลอกทางระบายน้ำ', 'งาน'),
+('เก็บขยะ', 'งาน'),
+('ซ่อมแซมถนน', 'งาน'),
+('ซ่อมไฟฟ้า', 'งาน'),
+('ซ่อมเสียงตามสาย', 'งาน'),
+('อื่นๆ', 'งาน');
 
 
 INSERT INTO image_categories (name, file_limit)

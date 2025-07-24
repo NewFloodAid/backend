@@ -48,6 +48,9 @@ public class Report {
     @Column(name = "additional_detail")
     private String additionalDetail;
 
+    @Column(name = "after_additional_detail")
+    private String afterAdditionalDetail;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Timestamp  createdAt;
