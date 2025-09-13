@@ -2,9 +2,12 @@ package com.example.flood_aid.controllers;
 import com.example.flood_aid.models.Report;
 import com.example.flood_aid.services.ExcelService;
 import com.example.flood_aid.services.ReportService;
+import com.example.flood_aid.services.PdfService;
+import com.example.flood_aid.exceptions.ReportNotFoundException;
 import org.springframework.http.HttpHeaders;
 import com.google.gson.Gson;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +21,11 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/reports")
 @AllArgsConstructor
+@Slf4j
 public class ReportController {
 
     private ReportService reportService;
+    private PdfService pdfService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Report> createReport(
@@ -78,6 +83,23 @@ public class ReportController {
     @DeleteMapping("/{id}")
     public void deleteReportById(@PathVariable Long id) {
         reportService.deleteReportById(id);
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> exportReportPdf(@PathVariable Long id) {
+        try {
+            byte[] pdf = pdfService.exportReportToPdf(id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_" + id + ".pdf")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
+        } catch (ReportNotFoundException e) {
+            log.warn("PDF export failed: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Unexpected error exporting PDF for report {}", id, e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
 }

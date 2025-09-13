@@ -5,11 +5,14 @@ import io.minio.MinioClient;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.GetObjectArgs;
 import io.minio.http.Method;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 @Service
@@ -67,6 +70,24 @@ public class UploadService {
             for (Image image : images) {
                 deleteImage(bucketName, image.getName());
             }
+        }
+    }
+
+    public byte[] getObject(String bucketName, String objectName) {
+        try (InputStream is = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .build()
+        ); ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+            byte[] data = new byte[8192];
+            int nRead;
+            while ((nRead = is.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            return buffer.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Error occurred while downloading object: " + e.getMessage());
         }
     }
 
