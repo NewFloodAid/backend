@@ -49,7 +49,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("sourceApp") String sourceApp
     );
 
-    @Query("SELECT DISTINCT r FROM Report r JOIN r.reportAssistances ra WHERE r IN :reports AND (:assistanceTypeId IS NULL OR (ra.assistanceType.id = :assistanceTypeId AND ra.isActive = true))")
+    @Query("SELECT DISTINCT r FROM Report r JOIN r.reportAssistanceLogs reportAssistanceLog WHERE r IN :reports AND (:assistanceTypeId IS NULL OR (reportAssistanceLog.assistanceType.id = :assistanceTypeId AND reportAssistanceLog.isActive = true))")
     List<Report> filterReportsByAssistanceType(
         @Param("reports") List<Report> reports,
         @Param("assistanceTypeId") Long assistanceTypeId
