@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class FloodAidApplication {
 	public static void main(String[] args) {
 		SpringApplication app = new SpringApplication(FloodAidApplication.class);
-		app.setAdditionalProfiles("prod");
+		app.setAdditionalProfiles("dev");
 		app.run(args);
 	}
 }
