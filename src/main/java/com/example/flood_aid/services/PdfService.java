@@ -49,44 +49,87 @@ public class PdfService {
             PDFont fallbackFont = fonts[1];
 
             try (PDPageContentStream content = new PDPageContentStream(document, page)) {
-                float margin = 50;
-                float y = page.getMediaBox().getHeight() - margin;
-                float leading = 18;
+                float margin = 50f;
                 float pageWidth = page.getMediaBox().getWidth();
+                float pageHeight = page.getMediaBox().getHeight();
+                float leading = 20f;
                 float maxTextWidth = pageWidth - 2 * margin;
 
+                // 1) Header (centered)
+                float y = pageHeight - 70f;
+                drawCenteredLine(content, primaryFont, fallbackFont, 20f, "คำร้อง", pageWidth, y);
+                y -= 26f;
+                drawCenteredLine(content, primaryFont, fallbackFont, 18f, "เทศบาลนครเชียงใหม่", pageWidth, y);
+
+                // 2) Right top (location + date)
+                y -= 18f;
+                drawRightAlignedLine(content, primaryFont, fallbackFont, 12f, "เขียนที่ เทศบาลนครเชียงใหม่", pageWidth, margin, y);
+                y -= 18f;
+                String thaiDate = formatThaiDate(report.getCreatedAt());
+                drawRightAlignedLine(content, primaryFont, fallbackFont, 12f, thaiDate, pageWidth, margin, y);
+
+                // 3) Body
+                y -= 30f;
+                int lines = 0;
                 content.beginText();
                 content.newLineAtOffset(margin, y);
-                // No report ID as requested
-                int lines = 0;
-                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "ชื่อ: " + safe(report.getFirstName()) + " " + safe(report.getLastName()), maxTextWidth, leading);
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "เรื่อง  ขอความอนุเคราะห์", maxTextWidth, leading);
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "เรียน  นายกเทศมนตรีเทศบาลนครเชียงใหม่", maxTextWidth, leading);
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "", maxTextWidth, leading);
 
-                // Phone numbers
-                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "เบอร์โทร: " + safe(report.getMainPhoneNumber()), maxTextWidth, leading);
-                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "เบอร์สำรอง: " + safe(report.getReservePhoneNumber()), maxTextWidth, leading);
-
-                // Assistance types
-                String assistanceSummary = buildAssistanceSummary(report);
-                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "ความต้องการ: " + assistanceSummary, maxTextWidth, leading);
-
-                // Additional details
-                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "รายละเอียดเพิ่มเติม: " + safe(report.getAdditionalDetail()), maxTextWidth, leading);
-
-                // Address
+                // Compose introduction line
                 Location loc = report.getLocation();
-                if (loc != null) {
-                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "ที่อยู่: " + safe(loc.getAddress()), maxTextWidth, leading);
-                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "ตำบล: " + safe(loc.getSubDistrict()), maxTextWidth, leading);
-                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "อำเภอ: " + safe(loc.getDistrict()), maxTextWidth, leading);
-                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "จังหวัด: " + safe(loc.getProvince()), maxTextWidth, leading);
-                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14, "รหัสไปรษณีย์: " + safe(loc.getPostalCode()), maxTextWidth, leading);
-                }
+                String fullName = (safe(report.getFirstName()) + " " + safe(report.getLastName())).trim();
+                String addressPart = loc != null ? safe(loc.getAddress()) : "-";
+                String subdistrict = loc != null ? safe(loc.getSubDistrict()) : "-";
+                String district = loc != null ? safe(loc.getDistrict()) : "-";
+                String province = loc != null ? safe(loc.getProvince()) : "-";
+                String phone = safe(report.getMainPhoneNumber());
+                String assistance = buildAssistanceSummary(report);
 
+                String intro = String.format(
+                        "                    ข้าพเจ้า %s อยู่บ้านเลขที่ %s ตำบล %s อำเภอ %s จังหวัด %s โทรศัพท์ %s มีความประสงค์ใคร่ขอความอนุเคราะห์ ให้ท่านช่วยเหลือและแก้ไขปัญหาความเดือดร้อนให้ข้าพเจ้า ดังนี้ - ต้องการ %s",
+                        fullName, addressPart, subdistrict, district, province, phone, assistance
+                );
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f, intro, maxTextWidth, leading);
+
+                // Additional detail (what is being requested)
+                String details = safe(report.getAdditionalDetail());
+                if (!details.isBlank()) {
+                    lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f, details, maxTextWidth, leading);
+                } else {
+                    }
+
+                // Courtesy line
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "หากเป็นผลประการใด โปรดแจ้งให้ข้าพเจ้าทราบด้วย จักขอบคุณยิ่ง", maxTextWidth, leading);
+
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "               จึงเรียนมาเพื่อโปรดทราบ", maxTextWidth, leading);
+
+                lines += writeWrappedWithFallback(content, primaryFont, fallbackFont, 14f,
+                        "                                                                                       ขอแสดงความนับถือ", maxTextWidth, leading);
                 content.endText();
 
-                // Draw image below the text block
-                float imageTopY = y - (lines * leading) - 20; // position image below written text
-                drawFirstImageIfPresent(document, content, page, report, margin, imageTopY);
+                // 4) Image at bottom; scale to fit space under the body
+                float yAfterBody = y - (lines * leading) - 10f;
+                float maxImageHeight = Math.max(0f, yAfterBody - (margin + 30f));
+                float imageTopY = drawBottomImageAndGetTopY(document, content, page, report, margin, maxImageHeight);
+
+                // 5) Signature block (right side) above image
+                float signBlockY = Math.max(yAfterBody, (imageTopY > 0 ? imageTopY + 20f : 140f));
+                String lineDots = "...............................";
+                drawRightAlignedLine(content, primaryFont, fallbackFont, 14f,
+                        "ลงชื่อ " + lineDots + " ผู้ยื่นคำร้อง", pageWidth, margin, signBlockY);
+                float rightPadding = 80f; // space from the right edge
+                drawRightAlignedLine(content, primaryFont, fallbackFont, 14f,
+                                    "(" + fullName + ")", 
+                                    pageWidth - rightPadding,   // pretend the page is a bit narrower
+                                    margin, 
+                                    signBlockY - 20f);
             }
 
             document.save(baos);
@@ -156,11 +199,48 @@ public class PdfService {
         content.drawImage(pdImage, x, y, drawWidth, drawHeight);
     }
 
+    // Draws the first report image at the bottom margin and returns the top Y used.
+    // If there is no image or not enough space (maxHeight <= 0), returns 0 without drawing.
+    private float drawBottomImageAndGetTopY(PDDocument document, PDPageContentStream content, PDPage page,
+                                           Report report, float margin, float maxHeight) throws IOException {
+        List<Image> images = report.getImages();
+        if (images == null || images.isEmpty() || maxHeight <= 0f) return 0f;
+
+        Optional<Image> chosen = images.stream()
+                .filter(img -> "BEFORE".equalsIgnoreCase(img.getPhase()))
+                .findFirst();
+        if (chosen.isEmpty()) chosen = images.stream().findFirst();
+        if (chosen.isEmpty()) return 0f;
+
+        PDImageXObject pdImage;
+        try {
+            byte[] bytes = uploadService.getObject("images", chosen.get().getName());
+            pdImage = PDImageXObject.createFromByteArray(document, bytes, chosen.get().getName());
+        } catch (Exception e) {
+            log.warn("Failed to fetch or decode image '{}' from MinIO: {}. Skipping image.", chosen.get().getName(), e.getMessage());
+            return 0f;
+        }
+
+        float pageWidth = page.getMediaBox().getWidth();
+        float maxWidth = pageWidth - 2 * margin;
+        float imgWidth = pdImage.getWidth();
+        float imgHeight = pdImage.getHeight();
+        float scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+        if (!Float.isFinite(scale) || scale <= 0f) return 0f;
+        float drawWidth = imgWidth * scale;
+        float drawHeight = imgHeight * scale;
+
+        float x = margin;
+        float y = margin; // bottom margin
+        content.drawImage(pdImage, x, y, drawWidth, drawHeight);
+        return y + drawHeight; // top Y of the image
+    }
+
     private static String safe(String value) {
         return value == null ? "-" : value;
     }
 
-    private static void writeLineWithFallback(PDPageContentStream content, PDFont primary, PDFont fallback, float fontSize, String text) throws IOException {
+    private static void writeLineWithFallback(PDPageContentStream content, PDFont primary, PDFont fallback, float fontSize, String text, float leading) throws IOException {
         // Write text switching fonts for characters the primary font cannot encode
         StringBuilder run = new StringBuilder();
         PDFont current = primary;
@@ -195,7 +275,7 @@ public class PdfService {
             content.setFont(current, fontSize);
             content.showText(run.toString());
         }
-        content.newLineAtOffset(0, -18);
+        content.newLineAtOffset(0, -leading);
     }
 
     private static boolean canEncode(PDFont font, String s) {
@@ -246,11 +326,11 @@ public class PdfService {
                     // wrap at last space
                     String toWrite = line.substring(0, lastSpaceIndex);
                     if (!toWrite.isEmpty()) {
-                        writeLineWithFallback(content, primary, fallback, fontSize, toWrite);
+                        writeLineWithFallback(content, primary, fallback, fontSize, toWrite, leading);
                         lines++;
                     } else {
                         // no content before space, force wrap at current pos
-                        writeLineWithFallback(content, primary, fallback, fontSize, line.toString());
+                        writeLineWithFallback(content, primary, fallback, fontSize, line.toString(), leading);
                         lines++;
                         line.setLength(0);
                         lastSpaceIndex = -1;
@@ -274,7 +354,7 @@ public class PdfService {
                     }
                 } else {
                     // force wrap at current position
-                    writeLineWithFallback(content, primary, fallback, fontSize, line.toString());
+                    writeLineWithFallback(content, primary, fallback, fontSize, line.toString(), leading);
                     lines++;
                     line.setLength(0);
                     lastSpaceIndex = -1;
@@ -298,7 +378,7 @@ public class PdfService {
         }
 
         if (line.length() > 0) {
-            writeLineWithFallback(content, primary, fallback, fontSize, line.toString());
+            writeLineWithFallback(content, primary, fallback, fontSize, line.toString(), leading);
             lines++;
         }
         return lines;
@@ -316,5 +396,83 @@ public class PdfService {
         }
         if (names.isEmpty()) return "-";
         return String.join(", ", names);
+    }
+
+    // Utilities for absolute-positioned single lines
+    private static void drawCenteredLine(PDPageContentStream content, PDFont primary, PDFont fallback,
+                                         float fontSize, String text, float pageWidth, float y) throws IOException {
+        float width = computeWidthWithFallback(primary, fallback, text, fontSize);
+        float x = (pageWidth - width) / 2f;
+        drawLineAt(content, primary, fallback, fontSize, text, x, y);
+    }
+
+    private static void drawRightAlignedLine(PDPageContentStream content, PDFont primary, PDFont fallback,
+                                             float fontSize, String text, float pageWidth, float marginRight, float y) throws IOException {
+        float width = computeWidthWithFallback(primary, fallback, text, fontSize);
+        float x = pageWidth - marginRight - width;
+        drawLineAt(content, primary, fallback, fontSize, text, x, y);
+    }
+
+    private static void drawLineAt(PDPageContentStream content, PDFont primary, PDFont fallback,
+                                   float fontSize, String text, float x, float y) throws IOException {
+        content.beginText();
+        content.newLineAtOffset(x, y);
+        showTextWithFallback(content, primary, fallback, fontSize, text);
+        content.endText();
+    }
+
+    private static void showTextWithFallback(PDPageContentStream content, PDFont primary, PDFont fallback,
+                                             float fontSize, String text) throws IOException {
+        if (text == null) text = "";
+        StringBuilder run = new StringBuilder();
+        PDFont current = primary;
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            String ch = new String(Character.toChars(cp));
+            boolean can = canEncode(current, ch);
+            if (can) {
+                run.append(ch);
+            } else {
+                if (run.length() > 0) {
+                    content.setFont(current, fontSize);
+                    content.showText(run.toString());
+                    run.setLength(0);
+                }
+                PDFont use = canEncode(primary, ch) ? primary : (canEncode(fallback, ch) ? fallback : PDType1Font.HELVETICA);
+                content.setFont(use, fontSize);
+                content.showText(ch);
+                current = primary; // reset to primary after single char
+            }
+            i += Character.charCount(cp);
+        }
+        if (run.length() > 0) {
+            content.setFont(current, fontSize);
+            content.showText(run.toString());
+        }
+    }
+
+    private static float computeWidthWithFallback(PDFont primary, PDFont fallback, String text, float fontSize) {
+        if (text == null) return 0f;
+        float width = 0f;
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            String ch = new String(Character.toChars(cp));
+            PDFont use = canEncode(primary, ch) ? primary : (canEncode(fallback, ch) ? fallback : PDType1Font.HELVETICA);
+            width += stringWidth(use, ch, fontSize);
+            i += Character.charCount(cp);
+        }
+        return width;
+    }
+
+    private static String formatThaiDate(java.sql.Timestamp ts) {
+        java.time.LocalDate date = (ts != null ? ts.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate() : java.time.LocalDate.now());
+        String[] thaiMonths = {
+                "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+        };
+        int day = date.getDayOfMonth();
+        String month = thaiMonths[date.getMonthValue() - 1];
+        int beYear = date.getYear() + 543;
+        return String.format("วันที่ %d %s พ.ศ. %d", day, month, beYear);
     }
 }
