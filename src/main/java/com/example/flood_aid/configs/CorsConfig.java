@@ -13,7 +13,7 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000" , "https://0b949dd0c7f5.ngrok-free.app/", "http://localhost:3001", "https://3b682f6c4ca7.ngrok-free.app", "https://onspot-line.kingsglaive.me" , "https://onspot-government.vercel.app", "https://onspot-line.vercel.app/")
+                        .allowedOrigins("http://localhost:3000" , "https://0b949dd0c7f5.ngrok-free.app/", "http://localhost:3001", "https://3b682f6c4ca7.ngrok-free.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "HEAD")
                         .allowCredentials(true)
                         .allowedHeaders("*");
