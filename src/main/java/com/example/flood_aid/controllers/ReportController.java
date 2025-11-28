@@ -58,6 +58,11 @@ public class ReportController {
         return ResponseEntity.ok(reportService.updateReport(report, imageParams));
     }
 
+    @GetMapping("/{id}")
+     public ResponseEntity<Report> getReportById(@PathVariable Long id) {
+        return ResponseEntity.ok(reportService.getReportById(id));
+    }
+
     @GetMapping("/filters")
     public ResponseEntity<List<Report>> filterReports(
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
