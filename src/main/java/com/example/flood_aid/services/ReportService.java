@@ -235,8 +235,9 @@ public class ReportService {
     }
 
     public Report getReportById(Long id) {
-    return reportRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with ID: " + id));
+        Report report = reportRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with ID: " + id));
+        getImageURLForReport(report);
+        return report;
     }
 
     public List<Report> filterReports(
