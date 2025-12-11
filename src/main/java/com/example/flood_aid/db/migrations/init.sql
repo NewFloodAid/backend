@@ -41,6 +41,7 @@ CREATE TABLE "reports" (
   "user_id" uuid,
   "first_name" varchar,
   "last_name" varchar,
+  "is_anonymous" boolean,
   "location_id" integer,
   "main_phone_number" varchar,
   "reserve_phone_number" varchar,

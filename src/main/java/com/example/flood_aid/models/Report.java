@@ -45,6 +45,9 @@ public class Report {
     @JoinColumn(name = "report_status_id")
     private ReportStatus reportStatus;
 
+    @Column(name = "is_anonymous", nullable = false)
+    private Boolean isAnonymous = false;
+
     @Column(name = "additional_detail")
     private String additionalDetail;
 
