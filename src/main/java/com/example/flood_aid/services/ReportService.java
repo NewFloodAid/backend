@@ -234,12 +234,6 @@ public class ReportService {
         }
     }
 
-    public Report getReportById(Long id) {
-        Report report = reportRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found with ID: " + id));
-        getImageURLForReport(report);
-        return report;
-    }
-
     public List<Report> filterReports(
         String subdistrict,
         String district,
