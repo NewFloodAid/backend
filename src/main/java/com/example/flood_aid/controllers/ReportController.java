@@ -61,6 +61,7 @@ public class ReportController {
     @GetMapping("/filters")
     public ResponseEntity<List<Report>> filterReports(
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
+            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestParam(required = false) String subdistrict,
             @RequestParam(required = false) String district,
             @RequestParam(required = false) String province,
@@ -76,6 +77,21 @@ public class ReportController {
         List<Report> reports = reportService.filterReports(
                 subdistrict, district, province, postalCode, reportStatusId, startTimestamp, endTimestamp, sourceApp, userId, assistanceTypeId
         );
+
+        if ("LIFF".equalsIgnoreCase(sourceApp)) {
+        for (Report report : reports) {
+
+            boolean isAnonymous = Boolean.TRUE.equals(report.getIsAnonymous());
+            boolean isOwner = currentUserId != null && currentUserId.equals(report.getUserId());
+
+            if (isAnonymous && !isOwner) {
+                report.setFirstName("ไม่ระบุตัวตน");
+                report.setLastName("");
+                report.setMainPhoneNumber("");
+                report.setReservePhoneNumber("");
+            }
+        }
+    }
 
         return ResponseEntity.ok(reports);
     }
