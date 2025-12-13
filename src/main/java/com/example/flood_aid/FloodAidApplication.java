@@ -13,7 +13,7 @@ public class FloodAidApplication {
 		dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
 
 		SpringApplication app = new SpringApplication(FloodAidApplication.class);
-		app.setAdditionalProfiles("dev");
+		app.setAdditionalProfiles("prod");
 		app.run(args);
 	}
 
