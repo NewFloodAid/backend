@@ -1,8 +1,9 @@
 package com.example.flood_aid.controllers;
+
 import com.example.flood_aid.models.Report;
 import com.example.flood_aid.services.ExcelService;
 import com.example.flood_aid.services.ReportService;
-import com.example.flood_aid.services.PdfService;
+
 import com.example.flood_aid.exceptions.ReportNotFoundException;
 import org.springframework.http.HttpHeaders;
 import com.google.gson.Gson;
@@ -25,21 +26,20 @@ import java.util.*;
 public class ReportController {
 
     private ReportService reportService;
-    private PdfService pdfService;
+
+    private com.example.flood_aid.services.WordService wordService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Report> createReport(
             @RequestParam("report") String reportString,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files
-    ) {
+            @RequestParam(value = "files", required = false) List<MultipartFile> files) {
         Gson gson = new Gson();
         Report report = gson.fromJson(reportString, Report.class);
 
         Map<String, List<MultipartFile>> imageParams = Map.of(
-                "files", files != null ? files : List.of()
-        );
+                "files", files != null ? files : List.of());
 
-        Report createdReport = reportService.createReport(report , imageParams);
+        Report createdReport = reportService.createReport(report, imageParams);
 
         return ResponseEntity.ok(createdReport);
     }
@@ -47,13 +47,11 @@ public class ReportController {
     @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Report> updateReport(
             @RequestParam("report") String reportString,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files)
-    {
+            @RequestParam(value = "files", required = false) List<MultipartFile> files) {
         Gson gson = new Gson();
         Report report = gson.fromJson(reportString, Report.class);
         Map<String, List<MultipartFile>> imageParams = Map.of(
-                "files", files != null ? files : List.of()
-        );
+                "files", files != null ? files : List.of());
 
         return ResponseEntity.ok(reportService.updateReport(report, imageParams));
     }
@@ -70,28 +68,30 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) Long assistanceTypeId
-    ) {
-        Timestamp startTimestamp = (startDate != null) ? new Timestamp(startDate.getTime()) : Timestamp.valueOf("1970-01-01 00:00:00");;
-        Timestamp endTimestamp = (endDate != null) ? new Timestamp(endDate.getTime()) : Timestamp.valueOf("2100-01-01 00:00:00");
+            @RequestParam(required = false) Long assistanceTypeId) {
+        Timestamp startTimestamp = (startDate != null) ? new Timestamp(startDate.getTime())
+                : Timestamp.valueOf("1970-01-01 00:00:00");
+        ;
+        Timestamp endTimestamp = (endDate != null) ? new Timestamp(endDate.getTime())
+                : Timestamp.valueOf("2100-01-01 00:00:00");
         List<Report> reports = reportService.filterReports(
-                subdistrict, district, province, postalCode, reportStatusId, startTimestamp, endTimestamp, sourceApp, userId, assistanceTypeId
-        );
+                subdistrict, district, province, postalCode, reportStatusId, startTimestamp, endTimestamp, sourceApp,
+                userId, assistanceTypeId);
 
         if ("LIFF".equalsIgnoreCase(sourceApp)) {
-        for (Report report : reports) {
+            for (Report report : reports) {
 
-            boolean isAnonymous = Boolean.TRUE.equals(report.getIsAnonymous());
-            boolean isOwner = currentUserId != null && currentUserId.equals(report.getUserId());
+                boolean isAnonymous = Boolean.TRUE.equals(report.getIsAnonymous());
+                boolean isOwner = currentUserId != null && currentUserId.equals(report.getUserId());
 
-            if (isAnonymous && !isOwner) {
-                report.setFirstName("ไม่ระบุตัวตน");
-                report.setLastName("");
-                report.setMainPhoneNumber("");
-                report.setReservePhoneNumber("");
+                if (isAnonymous && !isOwner) {
+                    report.setFirstName("ไม่ระบุตัวตน");
+                    report.setLastName("");
+                    report.setMainPhoneNumber("");
+                    report.setReservePhoneNumber("");
+                }
             }
         }
-    }
 
         return ResponseEntity.ok(reports);
     }
@@ -101,19 +101,20 @@ public class ReportController {
         reportService.deleteReportById(id);
     }
 
-    @GetMapping("/{id}/pdf")
-    public ResponseEntity<byte[]> exportReportPdf(@PathVariable Long id) {
+    @GetMapping("/{id}/word")
+    public ResponseEntity<byte[]> exportReportWord(@PathVariable Long id) {
         try {
-            byte[] pdf = pdfService.exportReportToPdf(id);
+            byte[] word = wordService.exportReportToWord(id);
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_" + id + ".pdf")
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .body(pdf);
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_" + id + ".docx")
+                    .contentType(MediaType
+                            .parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(word);
         } catch (ReportNotFoundException e) {
-            log.warn("PDF export failed: {}", e.getMessage());
+            log.warn("Word export failed: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            log.error("Unexpected error exporting PDF for report {}", id, e);
+            log.error("Unexpected error exporting Word for report {}", id, e);
             return ResponseEntity.internalServerError().build();
         }
     }
