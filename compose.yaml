@@ -34,7 +34,7 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./src/main/java/com/example/flood_aid/db/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./src/main/java/com/example/flood_aid/db/migrations/mock_data.sql:/docker-entrypoint-initdb.d/mock_data.sql
       - ./src/main/java/com/example/flood_aid/db/migrations/thai_location.sql:/docker-entrypoint-initdb.d/thai_location.sql
