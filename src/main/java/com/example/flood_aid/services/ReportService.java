@@ -37,7 +37,7 @@ public class ReportService {
     }
 
     @Transactional
-    public Report createReport(Report report , Map<String, List<MultipartFile>> imageParams) {
+    public Report createReport(Report report, Map<String, List<MultipartFile>> imageParams) {
         try {
             setReportAssistancesForReport(report);
             setImagesForReport(report, imageParams, "BEFORE");
@@ -56,38 +56,40 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException("ReportStatus with status 'PROCESS' not found"));
         ReportStatus successReportStatus = reportStatusRepository.findByStatus(Status.SUCCESS)
                 .orElseThrow(() -> new IllegalArgumentException("ReportStatus with status 'SUCCESS' not found"));
-        boolean isAnyReportAssistanceActive = report.getReportAssistances().stream().anyMatch(ReportAssistance::getIsActive);
+        boolean isAnyReportAssistanceActive = report.getReportAssistances().stream()
+                .anyMatch(ReportAssistance::getIsActive);
 
         if (report.getReportStatus() == null) {
             return pendingReportStatus;
         }
-        if(report.getReportStatus().equals(processedReportStatus) || (report.getReportStatus().equals(successReportStatus) && isAnyReportAssistanceActive) ){
+        if (report.getReportStatus().equals(processedReportStatus)
+                || (report.getReportStatus().equals(successReportStatus) && isAnyReportAssistanceActive)) {
             return processedReportStatus;
         }
         if (report.getReportStatus().equals(processedReportStatus) && !isAnyReportAssistanceActive) {
             return successReportStatus;
         }
-        return report.getReportStatus() ;
+        return report.getReportStatus();
     }
 
     private void setReportAssistancesForReport(Report report) {
-            for (ReportAssistance assistance : report.getReportAssistances()) {
-                assistance.setReport(report);
-                AssistanceType assistanceType = assistanceTypeRepository.findById(assistance.getAssistanceType().getId())
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid AssistanceType ID"));
-                assistance.setAssistanceType(assistanceType);
+        for (ReportAssistance assistance : report.getReportAssistances()) {
+            assistance.setReport(report);
+            AssistanceType assistanceType = assistanceTypeRepository.findById(assistance.getAssistanceType().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid AssistanceType ID"));
+            assistance.setAssistanceType(assistanceType);
 
-                ReportAssistanceLog assistanceLog = new ReportAssistanceLog();
-                assistanceLog.setAssistanceType(assistance.getAssistanceType());
-                assistanceLog.setQuantity(assistance.getQuantity());
-                assistanceLog.setIsActive(assistance.getIsActive());
-                assistanceLog.setReport(report);
+            ReportAssistanceLog assistanceLog = new ReportAssistanceLog();
+            assistanceLog.setAssistanceType(assistance.getAssistanceType());
+            assistanceLog.setQuantity(assistance.getQuantity());
+            assistanceLog.setIsActive(assistance.getIsActive());
+            assistanceLog.setReport(report);
 
-                if (report.getReportAssistanceLogs() == null) {
-                    report.setReportAssistanceLogs(new ArrayList<>());
-                }
-                report.getReportAssistanceLogs().add(assistanceLog);
+            if (report.getReportAssistanceLogs() == null) {
+                report.setReportAssistanceLogs(new ArrayList<>());
             }
+            report.getReportAssistanceLogs().add(assistanceLog);
+        }
     }
 
     private void setImagesForReport(Report report, Map<String, List<MultipartFile>> imageParams) {
@@ -117,7 +119,8 @@ public class ReportService {
                     String uniqueFileName = UUID.randomUUID() + extension;
 
                     try (InputStream fileStream = file.getInputStream()) {
-                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(), file.getContentType());
+                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(),
+                                file.getContentType());
                     } catch (Exception e) {
                         throw new RuntimeException("Error uploading image to MinIO: " + e.getMessage());
                     }
@@ -167,7 +170,8 @@ public class ReportService {
                     String uniqueFileName = UUID.randomUUID() + extension;
 
                     try (InputStream fileStream = file.getInputStream()) {
-                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(), file.getContentType());
+                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(),
+                                file.getContentType());
                     } catch (Exception e) {
                         throw new RuntimeException("Error uploading image to MinIO: " + e.getMessage());
                     }
@@ -190,7 +194,6 @@ public class ReportService {
         }
     }
 
-
     public Report updateReport(Report report, Map<String, List<MultipartFile>> imageParams) {
         Optional<Report> optionalReport = reportRepository.findById(report.getId());
         if (optionalReport.isPresent()) {
@@ -206,7 +209,8 @@ public class ReportService {
 
             // Determine phase for new images
             String phase = "BEFORE";
-            if (existingReport.getReportStatus() != null && existingReport.getReportStatus().getStatus() == Status.SENT) {
+            if (existingReport.getReportStatus() != null
+                    && existingReport.getReportStatus().getStatus() == Status.SENT) {
                 phase = "AFTER";
             }
             setImagesForReport(existingReport, imageParams, phase);
@@ -222,37 +226,58 @@ public class ReportService {
         reportRepository.deleteById(id);
     }
 
-    public void getImageURLForReport(Report report){
-        for(Image image : report.getImages()){
+    public void getImageURLForReport(Report report) {
+        for (Image image : report.getImages()) {
             image.setUrl(uploadService.getPresignedURL("images", image.getName()));
         }
     }
 
-    public void getImageURLForReports(List<Report> reports){
-        for(Report report : reports){
+    public void getImageURLForReports(List<Report> reports) {
+        for (Report report : reports) {
             getImageURLForReport(report);
         }
     }
 
     public List<Report> filterReports(
-        String subdistrict,
-        String district,
-        String province,
-        String postalCode,
-        Long reportStatusId,
-        Timestamp startDate,
-        Timestamp endDate,
-        String sourceApp,
-        UUID userId,
-        Long assistanceTypeId // back to single
+            String subdistrict,
+            String district,
+            String province,
+            String postalCode,
+            Long reportStatusId,
+            Timestamp startDate,
+            Timestamp endDate,
+            String sourceApp,
+            UUID userId,
+            Long assistanceTypeId // back to single
     ) {
 
-        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate, DateUtils.setEndOfDay(endDate));
+        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate,
+                DateUtils.setEndOfDay(endDate));
+
+        if (reports.isEmpty()) {
+            return reports;
+        }
+
         reports = reportRepository.filterReportsByLocation(reports, subdistrict, district, province, postalCode);
-        reports = reportRepository.filterReportsByStatus(reports, reportStatusId , sourceApp);
+
+        if (reports.isEmpty()) {
+            return reports;
+        }
+
+        reports = reportRepository.filterReportsByStatus(reports, reportStatusId, sourceApp);
+
+        if (reports.isEmpty()) {
+            return reports;
+        }
+
         if (assistanceTypeId != null) {
             reports = reportRepository.filterReportsByAssistanceType(reports, assistanceTypeId);
         }
+
+        if (reports.isEmpty()) {
+            return reports;
+        }
+
         getImageURLForReports(reports);
         return reports;
     }
