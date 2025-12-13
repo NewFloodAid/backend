@@ -13,7 +13,7 @@ RUN mvn clean package -Dmaven.test.skip=true
 # Production Stage
 FROM eclipse-temurin:21-jre AS production
 
-LABEL maintainer="nonokub.671@gmail.com"
+LABEL maintainer="flood-aid-team"
 
 WORKDIR /app
 
