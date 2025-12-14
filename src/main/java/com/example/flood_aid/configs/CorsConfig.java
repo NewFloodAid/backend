@@ -13,8 +13,8 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000", "https://0b949dd0c7f5.ngrok-free.app/",
-                                "http://localhost:3001", "https://frontend-rescuer-uu9n.vercel.app/")
+                        .allowedOrigins("http://localhost:3000", "http://localhost:3001",
+                                "https://frontend-rescuer.vercel.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "HEAD")
                         .allowCredentials(true)
                         .allowedHeaders("*");
