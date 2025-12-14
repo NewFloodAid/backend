@@ -14,7 +14,7 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins("http://localhost:3000", "http://localhost:3001",
-                                "https://frontend-rescuer.vercel.app")
+                                "https://frontend-rescuer.vercel.app", "https://frontend-line.vercel.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "HEAD")
                         .allowCredentials(true)
                         .allowedHeaders("*");
