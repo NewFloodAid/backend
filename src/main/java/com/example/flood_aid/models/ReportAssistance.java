@@ -1,4 +1,5 @@
 package com.example.flood_aid.models;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -6,7 +7,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
-@Table(name = "report_assistances")
+@Table(name = "report_assistances", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "report_id", "assistance_type_id" })
+})
 @Data
 public class ReportAssistance {
     @Id
