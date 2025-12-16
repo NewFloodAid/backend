@@ -1,6 +1,5 @@
 package com.example.flood_aid.models;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -13,7 +12,7 @@ public class Config {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "key")
+    @Column(name = "key", unique = true)
     private String key;
 
     @Column(name = "value")
