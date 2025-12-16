@@ -1,4 +1,5 @@
 package com.example.flood_aid.models;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
@@ -41,7 +42,7 @@ public class Report {
     @Column(name = "reserve_phone_number")
     private String reservePhoneNumber;
 
-    @OneToOne()
+    @ManyToOne()
     @JoinColumn(name = "report_status_id")
     private ReportStatus reportStatus;
 
@@ -56,21 +57,20 @@ public class Report {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private Timestamp  createdAt;
+    private Timestamp createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private Timestamp  updatedAt;
+    private Timestamp updatedAt;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "report")
     @JsonManagedReference
     private List<ReportAssistance> reportAssistances;
 
     @JsonIgnore
-    @OneToMany(cascade = CascadeType.ALL,mappedBy = "report")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "report")
     private List<ReportAssistanceLog> reportAssistanceLogs;
 
-
-    @OneToMany(cascade = CascadeType.ALL,mappedBy = "report")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "report")
     private List<Image> images;
 }
