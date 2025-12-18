@@ -1,5 +1,5 @@
 # Build Stage
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY src /app/src/
 RUN mvn clean package -Dmaven.test.skip=true
 
 # Production Stage
-FROM eclipse-temurin:21-jre AS production
+FROM eclipse-temurin:17-jre AS production
 
 LABEL maintainer="flood-aid-team"
 
@@ -22,4 +22,4 @@ COPY --from=build /app/target/*.jar /app/onspot-app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/onspot-app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/onspot-app.jar"]
