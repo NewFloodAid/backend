@@ -6,7 +6,7 @@ VALUES
 (4, 'SUCCESS', 4 , 4)
 ON CONFLICT ("id") DO NOTHING;
 
-ALTER TABLE "report_status" ALTER COLUMN "id" RESTART WITH 5;
+SELECT setval(pg_get_serial_sequence('report_status', 'id'), coalesce(max(id), 0) + 1, false) FROM report_status;
 
 INSERT INTO "assistance_types" ("id", "name", "unit")
 VALUES
@@ -19,14 +19,14 @@ VALUES
 (7, 'อื่นๆ', 'งาน')
 ON CONFLICT ("id") DO NOTHING;
 
-ALTER TABLE "assistance_types" ALTER COLUMN "id" RESTART WITH 8;
+SELECT setval(pg_get_serial_sequence('assistance_types', 'id'), coalesce(max(id), 0) + 1, false) FROM assistance_types;
 
 INSERT INTO "image_categories" ("id", "name", "file_limit")
 VALUES
 (1, 'files', 4)
 ON CONFLICT ("id") DO NOTHING;
 
-ALTER TABLE "image_categories" ALTER COLUMN "id" RESTART WITH 2;
+SELECT setval(pg_get_serial_sequence('image_categories', 'id'), coalesce(max(id), 0) + 1, false) FROM image_categories;
 
 INSERT INTO "configs"("key","value")
 VALUES
@@ -42,14 +42,14 @@ VALUES
     (1, 13.736717, 100.523186, 'Bangkok, Thailand', 'Rattanakosin', 'Phra Nakhon', 'Bangkok', '10200')
 ON CONFLICT ("id") DO NOTHING;
 
-ALTER TABLE "locations" ALTER COLUMN "id" RESTART WITH 2;
+SELECT setval(pg_get_serial_sequence('locations', 'id'), coalesce(max(id), 0) + 1, false) FROM locations;
 
 INSERT INTO "reports" ("id", "user_id", "first_name", "last_name", "location_id", "main_phone_number", "reserve_phone_number", "report_status_id", "additional_detail", "is_anonymous", "created_at", "updated_at")
 VALUES
     (1, 'e2fd4e6c-7e6f-4f8b-85bb-83c6d40efca2', 'John', 'Doe', 1, '1234567890', '0987654321', 2, 'Flood emergency in the area, requires immediate assistance.', false, NOW(), NOW())
 ON CONFLICT ("id") DO NOTHING;
 
-ALTER TABLE "reports" ALTER COLUMN "id" RESTART WITH 2;
+SELECT setval(pg_get_serial_sequence('reports', 'id'), coalesce(max(id), 0) + 1, false) FROM reports;
 
 INSERT INTO "report_assistances" ("report_id", "assistance_type_id", "quantity", "is_active")
 VALUES
@@ -67,3 +67,5 @@ WHERE NOT EXISTS (SELECT 1 FROM "images" WHERE "name" = 'image1.jpg' AND "report
 INSERT INTO "images" ("name", "image_category_id", "report_id")
 SELECT 'image2.jpg', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM "images" WHERE "name" = 'image2.jpg' AND "report_id" = 1);
+
+SELECT setval(pg_get_serial_sequence('images', 'id'), coalesce(max(id), 0) + 1, false) FROM images;
