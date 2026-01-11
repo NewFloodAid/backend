@@ -9,10 +9,14 @@ import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRelation;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.apache.xmlbeans.XmlCursor;
+
+import java.util.stream.Collectors;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -81,6 +85,59 @@ public class WordService {
                 XWPFDocument document = new XWPFDocument(is);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
+            // Find the target paragraph to insert after
+            XWPFParagraph targetParagraph = null;
+            for (XWPFParagraph p : document.getParagraphs()) {
+                // Look for a unique identifier in the text "นายสมพงษ์"
+                if (p.getText() != null && p.getText().contains("นายสมพงษ์")) {
+                    targetParagraph = p;
+                    break;
+                }
+            }
+
+            if (targetParagraph != null) {
+                // Prepare dynamic data
+                String assistanceType = "";
+                if (report.getReportAssistances() != null && !report.getReportAssistances().isEmpty()) {
+                    assistanceType = report.getReportAssistances().stream()
+                            .filter(ra -> Boolean.TRUE.equals(ra.getIsActive()))
+                            .map(ra -> ra.getAssistanceType().getName())
+                            .collect(Collectors.joining(", "));
+                } else {
+                    assistanceType = "-";
+                }
+
+                String additionalDetail = report.getAdditionalDetail() != null ? report.getAdditionalDetail() : "-";
+
+                String address = "-";
+                if (report.getLocation() != null && report.getLocation().getAddress() != null) {
+                    address = report.getLocation().getAddress();
+                }
+
+                String dynamicText = String.format("%s โดยมีรายละเอียด เพิ่มเติมคือ %s ณ บริเวณบ้านเลขที่ %s",
+                        assistanceType, additionalDetail, address);
+
+                // Insert new paragraph after target
+                XmlCursor cursor = targetParagraph.getCTP().newCursor();
+                cursor.toNextSibling(); // Move cursor to the next position (after current paragraph)
+
+                XWPFParagraph newParagraph = document.insertNewParagraph(cursor);
+                // Copy style from target paragraph if desired, or set standard
+                newParagraph.setAlignment(ParagraphAlignment.BOTH); // Or matches template
+
+                // Indentation (roughly matching standard Thai format if needed, or just
+                // default)
+                // newParagraph.setFirstLineIndent(720); // Example indent
+
+                XWPFRun newRun = newParagraph.createRun();
+                // Set font family to match template if possible, usually "TH SarabunPSK" or
+                // similar
+                // But without knowing exact font, we leave default or try to match
+                newRun.setFontFamily("TH SarabunPSK");
+                newRun.setFontSize(16); // Standard size for Thai official docs
+                newRun.setText(dynamicText);
+            }
+
             // Generate Map
             byte[] mapBytes = mapService.generateStaticMapWithPin(report.getLocation(), reportId);
 
@@ -103,6 +160,48 @@ public class WordService {
                 } catch (Exception e) {
                     log.error("Failed to add map image to Word document", e);
                     run.setText("[Error loading map image]");
+                }
+
+                // Add Google Maps Link
+                // Add Google Maps Link
+                if (report.getLocation() != null && report.getLocation().getLatitude() != null
+                        && report.getLocation().getLongitude() != null) {
+                    XWPFParagraph linkParagraph = document.createParagraph();
+                    linkParagraph.setAlignment(ParagraphAlignment.CENTER);
+
+                    String googleMapUrl = String.format("https://www.google.com/maps/search/?api=1&query=%s,%s",
+                            report.getLocation().getLatitude(), report.getLocation().getLongitude());
+                    String linkText = "Google Map: " + googleMapUrl;
+
+                    try {
+                        String rId = document.getPackagePart()
+                                .addExternalRelationship(googleMapUrl, XWPFRelation.HYPERLINK.getRelation()).getId();
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHyperlink cthyperLink = linkParagraph
+                                .getCTP().addNewHyperlink();
+                        cthyperLink.setId(rId);
+
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR ctr = cthyperLink.addNewR();
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText ctText = ctr.addNewT();
+                        ctText.setStringValue(linkText);
+
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr rPr = ctr.addNewRPr();
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTColor color = rPr.addNewColor();
+                        color.setVal("0000FF");
+
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTUnderline underline = rPr.addNewU();
+                        underline.setVal(org.openxmlformats.schemas.wordprocessingml.x2006.main.STUnderline.SINGLE);
+
+                        // Set font
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts fonts = rPr.addNewRFonts();
+                        fonts.setAscii("TH SarabunPSK");
+                        fonts.setHAnsi("TH SarabunPSK");
+                        fonts.setCs("TH SarabunPSK");
+
+                    } catch (Exception e) {
+                        log.error("Failed to create hyperlink", e);
+                        XWPFRun linkRun = linkParagraph.createRun();
+                        linkRun.setText(linkText);
+                    }
                 }
             }
 
