@@ -1,27 +1,27 @@
 services:
-#  onspot-app:
-#    build: .
-#    container_name: onspot-app
-#    ports:
-#      - "8080:8080"
-#    restart: unless-stopped
-#    depends_on:
-#      - postgres
-#      - minio
-#    environment:
-#      SPRING_APPLICATION_NAME: flood-aid
-#      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flood_aid_db
-#      SPRING_DATASOURCE_USERNAME: root
-#      SPRING_DATASOURCE_PASSWORD: secret
-#      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-#      SPRING_JPA_SHOW_SQL: true
-#      MINIO_URL: http://minio:9001
-#      MINIO_ACCESS_NAME: minioadmin
-#      MINIO_ACCESS_SECRET: miniopassword
-#      SERVER_TOMCAT_RELAXED_QUERY_CHARS: "|,{,},[,]"
-#      LINE_CHANNEL_ID: 2006662146
-#    networks:
-#      - flood_aid_net
+  #  onspot-app:
+  #    build: .
+  #    container_name: onspot-app
+  #    ports:
+  #      - "8080:8080"
+  #    restart: unless-stopped
+  #    depends_on:
+  #      - postgres
+  #      - minio
+  #    environment:
+  #      SPRING_APPLICATION_NAME: flood-aid
+  #      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flood_aid_db
+  #      SPRING_DATASOURCE_USERNAME: root
+  #      SPRING_DATASOURCE_PASSWORD: secret
+  #      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+  #      SPRING_JPA_SHOW_SQL: true
+  #      MINIO_URL: http://minio:9001
+  #      MINIO_ACCESS_NAME: minioadmin
+  #      MINIO_ACCESS_SECRET: miniopassword
+  #      SERVER_TOMCAT_RELAXED_QUERY_CHARS: "|,{,},[,]"
+  #      LINE_CHANNEL_ID: 2006662146
+  #    networks:
+  #      - flood_aid_net
 
   postgres:
     image: postgres:latest
@@ -53,30 +53,15 @@ services:
     depends_on:
       - postgres
     volumes:
-      - pgadmin_data:/var/lib/pgadmin  # This volume will persist pgAdmin data
-    networks:
-      - flood_aid_net
-
-  minio:
-    image: minio/minio:latest
-    container_name: flood_aid_minio
-    restart: always
-    ports:
-      - "${MINIO_CONSOLE}:9000"
-      - "${MINIO_SERVER}:9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - minio_data:/data
-    command: server --address ":${MINIO_SERVER}" --console-address ":${MINIO_CONSOLE}" /data
+      - pgadmin_data:/var/lib/pgadmin # This volume will persist pgAdmin data
     networks:
       - flood_aid_net
 
 volumes:
-  minio_data:
+
   postgres_data:
   pgadmin_data:
+
 
 networks:
   flood_aid_net:

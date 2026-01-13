@@ -42,7 +42,9 @@ public class ReportService {
             setReportAssistancesForReport(report);
             setImagesForReport(report, imageParams, "BEFORE");
             setReportStatusForReport(report);
-            return reportRepository.save(report);
+            Report savedReport = reportRepository.save(report);
+            getImageURLForReport(savedReport);
+            return savedReport;
         } catch (Exception e) {
             uploadService.deleteImages("images", report.getImages());
             throw new RuntimeException("Failed to save report: " + e.getMessage(), e);
@@ -216,7 +218,9 @@ public class ReportService {
             setImagesForReport(existingReport, imageParams, phase);
             setReportStatusForReport(existingReport);
 
-            return reportRepository.save(existingReport);
+            Report savedReport = reportRepository.save(existingReport);
+            getImageURLForReport(savedReport);
+            return savedReport;
         } else {
             throw new IllegalArgumentException("Report not found with ID: " + report.getId());
         }
