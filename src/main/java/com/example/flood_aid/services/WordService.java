@@ -1,6 +1,7 @@
 package com.example.flood_aid.services;
 
 import com.example.flood_aid.repositories.ReportRepository;
+import com.example.flood_aid.models.Image;
 import com.example.flood_aid.models.Report;
 import com.example.flood_aid.exceptions.ReportNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.apache.xmlbeans.XmlCursor;
 
 import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Map;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,6 +33,7 @@ public class WordService {
 
     private final ReportRepository reportRepository;
     private final MapService mapService;
+    private final UploadService uploadService;
 
     @Transactional(readOnly = true)
     public byte[] exportReportToWord(Long reportId) throws IOException {
@@ -201,6 +205,102 @@ public class WordService {
                         log.error("Failed to create hyperlink", e);
                         XWPFRun linkRun = linkParagraph.createRun();
                         linkRun.setText(linkText);
+                    }
+                }
+            }
+
+            document.write(baos);
+            return baos.toByteArray();
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportReportImagesToWord(Long reportId) throws IOException {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportNotFoundException(reportId));
+
+        List<Image> images = report.getImages();
+        if (images == null || images.isEmpty()) {
+            throw new IOException("No images found for report " + reportId);
+        }
+
+        // Group images by phase
+        Map<String, List<Image>> imagesByPhase = images.stream()
+                .collect(Collectors.groupingBy(img -> img.getPhase() != null ? img.getPhase() : "UNKNOWN"));
+
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            // Add title
+            XWPFParagraph titleParagraph = document.createParagraph();
+            titleParagraph.setAlignment(ParagraphAlignment.CENTER);
+            XWPFRun titleRun = titleParagraph.createRun();
+            titleRun.setBold(true);
+            titleRun.setFontSize(18);
+            titleRun.setFontFamily("TH SarabunPSK");
+            titleRun.setText("รูปภาพประกอบรายงาน #" + reportId);
+            titleRun.addBreak();
+
+            // Process images by phase
+            for (Map.Entry<String, List<Image>> entry : imagesByPhase.entrySet()) {
+                String phase = entry.getKey();
+                List<Image> phaseImages = entry.getValue();
+
+                // Add phase header
+                XWPFParagraph phaseParagraph = document.createParagraph();
+                phaseParagraph.setAlignment(ParagraphAlignment.LEFT);
+                XWPFRun phaseRun = phaseParagraph.createRun();
+                phaseRun.setBold(true);
+                phaseRun.setFontSize(16);
+                phaseRun.setFontFamily("TH SarabunPSK");
+                String phaseLabel = "BEFORE".equals(phase) ? "ภาพก่อนดำเนินการ"
+                        : "AFTER".equals(phase) ? "ภาพหลังดำเนินการ" : phase;
+                phaseRun.setText(phaseLabel);
+                phaseRun.addBreak();
+
+                // Add each image
+                for (Image image : phaseImages) {
+                    try {
+                        byte[] imageBytes = uploadService.getObject("images", image.getName());
+                        if (imageBytes != null && imageBytes.length > 0) {
+                            XWPFParagraph imageParagraph = document.createParagraph();
+                            imageParagraph.setAlignment(ParagraphAlignment.CENTER);
+                            XWPFRun imageRun = imageParagraph.createRun();
+
+                            // Determine image type from filename
+                            int pictureType = XWPFDocument.PICTURE_TYPE_JPEG;
+                            String imageName = image.getName().toLowerCase();
+                            if (imageName.endsWith(".png")) {
+                                pictureType = XWPFDocument.PICTURE_TYPE_PNG;
+                            } else if (imageName.endsWith(".gif")) {
+                                pictureType = XWPFDocument.PICTURE_TYPE_GIF;
+                            }
+
+                            try (ByteArrayInputStream imageInputStream = new ByteArrayInputStream(imageBytes)) {
+                                // Scale image to fit page width (max ~450 points width)
+                                int width = 400;
+                                int height = 300;
+                                imageRun.addPicture(imageInputStream, pictureType, image.getName(),
+                                        Units.toEMU(width), Units.toEMU(height));
+                            }
+
+                            // Add image caption
+                            XWPFParagraph captionParagraph = document.createParagraph();
+                            captionParagraph.setAlignment(ParagraphAlignment.CENTER);
+                            XWPFRun captionRun = captionParagraph.createRun();
+                            captionRun.setFontSize(12);
+                            captionRun.setFontFamily("TH SarabunPSK");
+                            captionRun.setItalic(true);
+                            String categoryName = image.getImageCategory() != null ? image.getImageCategory().getName()
+                                    : "รูปภาพ";
+                            captionRun.setText(categoryName);
+                            captionRun.addBreak();
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to add image {} to Word document", image.getName(), e);
+                        XWPFParagraph errorParagraph = document.createParagraph();
+                        XWPFRun errorRun = errorParagraph.createRun();
+                        errorRun.setText("[Error loading image: " + image.getName() + "]");
                     }
                 }
             }

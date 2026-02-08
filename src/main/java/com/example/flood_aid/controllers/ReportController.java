@@ -119,4 +119,22 @@ public class ReportController {
         }
     }
 
+    @GetMapping("/{id}/word-with-images")
+    public ResponseEntity<byte[]> exportReportImagesWord(@PathVariable Long id) {
+        try {
+            byte[] word = wordService.exportReportImagesToWord(id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_" + id + "_images.docx")
+                    .contentType(MediaType
+                            .parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(word);
+        } catch (ReportNotFoundException e) {
+            log.warn("Word with images export failed: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Unexpected error exporting Word with images for report {}", id, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
 }
