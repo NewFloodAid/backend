@@ -89,6 +89,29 @@ public class WordService {
                 XWPFDocument document = new XWPFDocument(is);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
+            // --- Conditional greeting text replacement ---
+            String resolvedAssistanceType = "";
+            if (report.getReportAssistances() != null && !report.getReportAssistances().isEmpty()) {
+                resolvedAssistanceType = report.getReportAssistances().stream()
+                        .filter(ra -> Boolean.TRUE.equals(ra.getIsActive()))
+                        .map(ra -> ra.getAssistanceType().getName())
+                        .collect(Collectors.joining(", "));
+            }
+
+            if (resolvedAssistanceType.contains("ซ่อมไฟฟ้า")) {
+                for (XWPFParagraph p : document.getParagraphs()) {
+                    for (XWPFRun run : p.getRuns()) {
+                        String text = run.getText(0);
+                        if (text != null && text.contains("นายกเทศมนตรีเทศบาลนครเชียงใหม่")) {
+                            text = text.replace("นายกเทศมนตรีเทศบาลนครเชียงใหม่",
+                                    "ผู้อำนวยการส่วนภูมิภาคเขต 1 ภาคเหนือ");
+                            run.setText(text, 0);
+                        }
+                    }
+                }
+            }
+            // --- End conditional greeting ---
+
             // Find the target paragraph to insert after
             XWPFParagraph targetParagraph = null;
             for (XWPFParagraph p : document.getParagraphs()) {
