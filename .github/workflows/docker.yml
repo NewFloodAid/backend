@@ -25,17 +25,3 @@ jobs:
       - name: Push Docker image
         run: docker push ${{ secrets.DOCKER_USERNAME }}/onspot-app:latest
 
-      - name: Az CLI Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set AKS context
-        id: set-context
-        uses: azure/aks-set-context@v3
-        with:
-          resource-group: '${{ secrets.AZURE_RESOURCE_GROUP }}'
-          cluster-name: '${{ secrets.AZURE_CLUSTER_NAME }}'
-
-      - name: Restart Kubernetes Deployment
-        run: kubectl rollout restart deployment onspot-app -n onspot
