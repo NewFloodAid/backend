@@ -201,7 +201,11 @@ public class ReportService {
         if (optionalReport.isPresent()) {
             Report existingReport = optionalReport.get();
 
-            BeanUtils.copyProperties(report, existingReport, "createdAt", "updatedAt");
+            Status oldStatus = existingReport.getReportStatus() != null
+                    ? existingReport.getReportStatus().getStatus()
+                    : null;
+
+            BeanUtils.copyProperties(report, existingReport, "createdAt", "updatedAt", "processedAt", "sentAt");
             for (ReportAssistance assistance : existingReport.getReportAssistances()) {
                 assistance.setReport(existingReport);
             }
@@ -217,6 +221,20 @@ public class ReportService {
             }
             setImagesForReport(existingReport, imageParams, phase);
             setReportStatusForReport(existingReport);
+
+            // Set status timestamps based on new status
+            Status newStatus = existingReport.getReportStatus() != null
+                    ? existingReport.getReportStatus().getStatus()
+                    : null;
+            if (newStatus != null && newStatus != oldStatus) {
+                Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+                if (newStatus == Status.PROCESS && existingReport.getProcessedAt() == null) {
+                    existingReport.setProcessedAt(now);
+                }
+                if (newStatus == Status.SENT && existingReport.getSentAt() == null) {
+                    existingReport.setSentAt(now);
+                }
+            }
 
             Report savedReport = reportRepository.save(existingReport);
             getImageURLForReport(savedReport);

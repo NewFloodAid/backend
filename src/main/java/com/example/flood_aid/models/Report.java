@@ -63,6 +63,12 @@ public class Report {
     @Column(name = "updated_at")
     private Timestamp updatedAt;
 
+    @Column(name = "processed_at")
+    private Timestamp processedAt;
+
+    @Column(name = "sent_at")
+    private Timestamp sentAt;
+
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "report")
     @JsonManagedReference
     private List<ReportAssistance> reportAssistances;
