@@ -205,7 +205,8 @@ public class ReportService {
                     ? existingReport.getReportStatus().getStatus()
                     : null;
 
-            BeanUtils.copyProperties(report, existingReport, "createdAt", "updatedAt", "processedAt", "sentAt");
+            BeanUtils.copyProperties(report, existingReport, "createdAt", "updatedAt", "processedAt", "sentAt",
+                    "editedAt");
             for (ReportAssistance assistance : existingReport.getReportAssistances()) {
                 assistance.setReport(existingReport);
             }
@@ -234,6 +235,8 @@ public class ReportService {
                 if (newStatus == Status.SENT && existingReport.getSentAt() == null) {
                     existingReport.setSentAt(now);
                 }
+            } else if (oldStatus == Status.PENDING && newStatus == Status.PENDING) {
+                existingReport.setEditedAt(Timestamp.valueOf(LocalDateTime.now()));
             }
 
             Report savedReport = reportRepository.save(existingReport);

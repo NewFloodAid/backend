@@ -66,6 +66,9 @@ public class Report {
     @Column(name = "processed_at")
     private Timestamp processedAt;
 
+    @Column(name = "edited_at")
+    private Timestamp editedAt;
+
     @Column(name = "sent_at")
     private Timestamp sentAt;
 
