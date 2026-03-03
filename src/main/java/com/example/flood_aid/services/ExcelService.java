@@ -1,6 +1,7 @@
 package com.example.flood_aid.services;
 
 import com.example.flood_aid.models.Report;
+import com.example.flood_aid.models.Status;
 import com.example.flood_aid.repositories.ReportRepository;
 import com.example.flood_aid.utils.DateUtils;
 import lombok.AllArgsConstructor;
@@ -73,8 +74,17 @@ public class ExcelService {
         log.info("Populating row for report ID: {}, Name: {} {}", report.getId(), report.getFirstName(),
                 report.getLastName());
 
-        // Column 0: วันที่-เวลาที่แจ้งเข้ามา (createdAt)
-        setCellDate(row, 0, report.getCreatedAt(), dateStyle);
+        // Column 0: วันที่-เวลาที่แจ้งเข้ามา
+        // If status is PENDING and editedAt exists, use editedAt (user edited before
+        // acceptance)
+        // Otherwise use createdAt
+        Timestamp reportedDate = report.getCreatedAt();
+        if (report.getReportStatus() != null
+                && report.getReportStatus().getStatus() == Status.PENDING
+                && report.getEditedAt() != null) {
+            reportedDate = report.getEditedAt();
+        }
+        setCellDate(row, 0, reportedDate, dateStyle);
 
         // Column 1: วันที่-เวลาที่รับเรื่อง (processedAt)
         setCellDate(row, 1, report.getProcessedAt(), dateStyle);
@@ -82,8 +92,14 @@ public class ExcelService {
         // Column 2: วันที่-เวลาที่ส่งเรื่องต่อ (sentAt)
         setCellDate(row, 2, report.getSentAt(), dateStyle);
 
-        // Column 3: วันที่-เวลาที่แจ้งว่าเสร็จสิ้น (editedAt)
-        setCellDate(row, 3, report.getEditedAt(), dateStyle);
+        // Column 3: วันที่-เวลาที่แจ้งว่าเสร็จสิ้น (updatedAt, only if status is
+        // SUCCESS)
+        Timestamp completedDate = null;
+        if (report.getReportStatus() != null
+                && report.getReportStatus().getStatus() == Status.SUCCESS) {
+            completedDate = report.getUpdatedAt();
+        }
+        setCellDate(row, 3, completedDate, dateStyle);
 
         // Column 4-5: Name fields
         row.createCell(4).setCellValue(report.getFirstName() != null ? report.getFirstName() : "");
