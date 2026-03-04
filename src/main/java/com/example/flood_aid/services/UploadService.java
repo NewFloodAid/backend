@@ -24,6 +24,9 @@ public class UploadService {
         // Assuming we want a standard URL.
         // If we treat bucketName as folder:
         String publicId = bucketName + "/" + objectName;
+        // Sanitize '%' to prevent URLDecoder: Incomplete trailing escape (%) pattern
+        // exception
+        publicId = publicId.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
         return cloudinary.url().generate(publicId);
     }
 
