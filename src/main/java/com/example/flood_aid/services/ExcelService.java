@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ExcelService {
     private final ReportRepository reportRepository;
-    private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    private static final String DATE_FORMAT = "dd/MM/yy HH:mm:ss";
     private static final String[] HEADERS = {
             "วันที่-เวลาที่แจ้งเข้ามา", "วันที่-เวลาที่รับเรื่อง", "วันที่-เวลาที่ส่งเรื่องต่อ",
             "วันที่-เวลาที่แจ้งว่าเสร็จสิ้น",
