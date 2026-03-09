@@ -189,20 +189,18 @@ public class WordService {
                     run.setText("[Error loading map image]");
                 }
 
-                // Add Google Maps Link
-                // Add Google Maps Link
+                // Add OpenStreetMap link
                 if (report.getLocation() != null && report.getLocation().getLatitude() != null
                         && report.getLocation().getLongitude() != null) {
                     XWPFParagraph linkParagraph = document.createParagraph();
                     linkParagraph.setAlignment(ParagraphAlignment.CENTER);
 
-                    String googleMapUrl = String.format("https://www.google.com/maps/search/?api=1&query=%s,%s",
-                            report.getLocation().getLatitude(), report.getLocation().getLongitude());
-                    String linkText = "Google Map: " + googleMapUrl;
+                    String openStreetMapUrl = mapService.buildOpenStreetMapLink(report.getLocation());
+                    String linkText = "OpenStreetMap: " + openStreetMapUrl;
 
                     try {
                         String rId = document.getPackagePart()
-                                .addExternalRelationship(googleMapUrl, XWPFRelation.HYPERLINK.getRelation()).getId();
+                                .addExternalRelationship(openStreetMapUrl, XWPFRelation.HYPERLINK.getRelation()).getId();
                         org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHyperlink cthyperLink = linkParagraph
                                 .getCTP().addNewHyperlink();
                         cthyperLink.setId(rId);
