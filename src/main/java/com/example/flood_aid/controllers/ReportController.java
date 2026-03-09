@@ -1,22 +1,25 @@
 package com.example.flood_aid.controllers;
 
-import com.example.flood_aid.models.Report;
-import com.example.flood_aid.services.ExcelService;
-import com.example.flood_aid.services.ReportService;
-
 import com.example.flood_aid.exceptions.ReportNotFoundException;
-import org.springframework.http.HttpHeaders;
+import com.example.flood_aid.models.Report;
+import com.example.flood_aid.models.dto.PaginatedResponse;
+import com.example.flood_aid.services.ReportService;
 import com.google.gson.Gson;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.sql.Timestamp;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -39,7 +42,6 @@ public class ReportController {
                 "files", files != null ? files : List.of());
 
         Report createdReport = reportService.createReport(report, imageParams);
-
         return ResponseEntity.ok(createdReport);
     }
 
@@ -60,6 +62,7 @@ public class ReportController {
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
             @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestParam(required = false) String subdistrict,
+            @RequestParam(name = "subDistrict", required = false) String subDistrict,
             @RequestParam(required = false) String district,
             @RequestParam(required = false) String province,
             @RequestParam(required = false) String postalCode,
@@ -67,32 +70,69 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) Long assistanceTypeId) {
-        Timestamp startTimestamp = (startDate != null) ? new Timestamp(startDate.getTime())
-                : Timestamp.valueOf("1970-01-01 00:00:00");
-        ;
-        Timestamp endTimestamp = (endDate != null) ? new Timestamp(endDate.getTime())
-                : Timestamp.valueOf("2100-01-01 00:00:00");
+            @RequestParam(required = false) Long assistanceTypeId,
+            @RequestParam(required = false) String keyword) {
+        Timestamp startTimestamp = resolveStartTimestamp(startDate);
+        Timestamp endTimestamp = resolveEndTimestamp(endDate);
+        String resolvedSubdistrict = firstNonBlank(subdistrict, subDistrict);
+
         List<Report> reports = reportService.filterReports(
-                subdistrict, district, province, postalCode, reportStatusId, startTimestamp, endTimestamp, sourceApp,
-                userId, assistanceTypeId);
+                resolvedSubdistrict,
+                district,
+                province,
+                postalCode,
+                reportStatusId,
+                startTimestamp,
+                endTimestamp,
+                sourceApp,
+                userId,
+                assistanceTypeId,
+                keyword);
 
-        if ("LIFF".equalsIgnoreCase(sourceApp)) {
-            for (Report report : reports) {
-
-                boolean isAnonymous = Boolean.TRUE.equals(report.getIsAnonymous());
-                boolean isOwner = currentUserId != null && currentUserId.equals(report.getUserId());
-
-                if (isAnonymous && !isOwner) {
-                    report.setFirstName("ไม่ระบุตัวตน");
-                    report.setLastName("");
-                    report.setMainPhoneNumber("");
-                    report.setReservePhoneNumber("");
-                }
-            }
-        }
-
+        applyLiffAnonymization(sourceApp, currentUserId, reports);
         return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/filters/paged")
+    public ResponseEntity<PaginatedResponse<Report>> filterReportsPaged(
+            @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
+            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
+            @RequestParam(required = false) String subdistrict,
+            @RequestParam(name = "subDistrict", required = false) String subDistrict,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String province,
+            @RequestParam(required = false) String postalCode,
+            @RequestParam(required = false) Long reportStatusId,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) Long assistanceTypeId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "8") Integer size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.max(1, Math.min(size, 100));
+
+        Timestamp startTimestamp = resolveStartTimestamp(startDate);
+        Timestamp endTimestamp = resolveEndTimestamp(endDate);
+        String resolvedSubdistrict = firstNonBlank(subdistrict, subDistrict);
+        Page<Report> reportPage = reportService.filterReportsPaged(
+                resolvedSubdistrict,
+                district,
+                province,
+                postalCode,
+                reportStatusId,
+                startTimestamp,
+                endTimestamp,
+                sourceApp,
+                userId,
+                assistanceTypeId,
+                keyword,
+                safePage,
+                safeSize);
+
+        applyLiffAnonymization(sourceApp, currentUserId, reportPage.getContent());
+        return ResponseEntity.ok(PaginatedResponse.from(reportPage));
     }
 
     @DeleteMapping("/{id}")
@@ -136,4 +176,40 @@ public class ReportController {
         }
     }
 
+    private Timestamp resolveStartTimestamp(Date startDate) {
+        return startDate != null
+                ? new Timestamp(startDate.getTime())
+                : Timestamp.valueOf("1970-01-01 00:00:00");
+    }
+
+    private Timestamp resolveEndTimestamp(Date endDate) {
+        return endDate != null
+                ? new Timestamp(endDate.getTime())
+                : Timestamp.valueOf("2100-01-01 00:00:00");
+    }
+
+    private void applyLiffAnonymization(String sourceApp, UUID currentUserId, List<Report> reports) {
+        if (!"LIFF".equalsIgnoreCase(sourceApp)) {
+            return;
+        }
+
+        for (Report report : reports) {
+            boolean isAnonymous = Boolean.TRUE.equals(report.getIsAnonymous());
+            boolean isOwner = currentUserId != null && currentUserId.equals(report.getUserId());
+
+            if (isAnonymous && !isOwner) {
+                report.setFirstName("ไม่ระบุตัวตน");
+                report.setLastName("");
+                report.setMainPhoneNumber("");
+                report.setReservePhoneNumber("");
+            }
+        }
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        if (primary != null && !primary.trim().isEmpty()) {
+            return primary;
+        }
+        return fallback;
+    }
 }

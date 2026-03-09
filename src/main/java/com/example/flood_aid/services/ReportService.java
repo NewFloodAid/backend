@@ -2,11 +2,19 @@ package com.example.flood_aid.services;
 
 import com.example.flood_aid.models.*;
 import com.example.flood_aid.repositories.AssistanceTypeRepository;
+import com.example.flood_aid.repositories.ImageRepository;
 import com.example.flood_aid.repositories.ReportRepository;
 import com.example.flood_aid.repositories.ReportStatusRepository;
+import com.example.flood_aid.repositories.specifications.ReportSpecifications;
 import com.example.flood_aid.utils.DateUtils;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +23,8 @@ import java.io.InputStream;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -23,6 +33,7 @@ public class ReportService {
 
     private UploadService uploadService;
     private ReportRepository reportRepository;
+    private ImageRepository imageRepository;
     private AssistanceTypeRepository assistanceTypeRepository;
     private ReportStatusRepository reportStatusRepository;
 
@@ -191,6 +202,10 @@ public class ReportService {
     }
 
     public void getImageURLForReport(Report report) {
+        if (report.getImages() == null) {
+            report.setImages(Collections.emptyList());
+            return;
+        }
         for (Image image : report.getImages()) {
             image.setUrl(uploadService.getPresignedURL("images", image.getName()));
         }
@@ -212,37 +227,103 @@ public class ReportService {
             Timestamp endDate,
             String sourceApp,
             UUID userId,
-            Long assistanceTypeId // back to single
+            Long assistanceTypeId,
+            String keyword
     ) {
+        Specification<Report> specification = ReportSpecifications.withFilters(
+                subdistrict,
+                district,
+                province,
+                postalCode,
+                reportStatusId,
+                startDate,
+                DateUtils.setEndOfDay(endDate),
+                userId,
+                assistanceTypeId,
+                keyword);
 
-        List<Report> reports = reportRepository.findReportsByConditions(userId, startDate,
-                DateUtils.setEndOfDay(endDate));
-
-        if (reports.isEmpty()) {
-            return reports;
-        }
-
-        reports = reportRepository.filterReportsByLocation(reports, subdistrict, district, province, postalCode);
-
-        if (reports.isEmpty()) {
-            return reports;
-        }
-
-        reports = reportRepository.filterReportsByStatus(reports, reportStatusId, sourceApp);
-
-        if (reports.isEmpty()) {
-            return reports;
-        }
-
-        if (assistanceTypeId != null) {
-            reports = reportRepository.filterReportsByAssistanceType(reports, assistanceTypeId);
-        }
-
+        List<Report> reports = reportRepository.findAll(specification, getSortBySourceApp(sourceApp));
+        reports = hydrateReports(reports);
         if (reports.isEmpty()) {
             return reports;
         }
 
         getImageURLForReports(reports);
         return reports;
+    }
+
+    public Page<Report> filterReportsPaged(
+            String subdistrict,
+            String district,
+            String province,
+            String postalCode,
+            Long reportStatusId,
+            Timestamp startDate,
+            Timestamp endDate,
+            String sourceApp,
+            UUID userId,
+            Long assistanceTypeId,
+            String keyword,
+            int page,
+            int size) {
+        Specification<Report> specification = ReportSpecifications.withFilters(
+                subdistrict,
+                district,
+                province,
+                postalCode,
+                reportStatusId,
+                startDate,
+                DateUtils.setEndOfDay(endDate),
+                userId,
+                assistanceTypeId,
+                keyword);
+
+        Pageable pageable = PageRequest.of(page, size, getSortBySourceApp(sourceApp));
+        Page<Report> reportsPage = reportRepository.findAll(specification, pageable);
+        List<Report> hydratedReports = hydrateReports(reportsPage.getContent());
+
+        if (!hydratedReports.isEmpty()) {
+            getImageURLForReports(hydratedReports);
+        }
+
+        return new PageImpl<>(hydratedReports, pageable, reportsPage.getTotalElements());
+    }
+
+    private Sort getSortBySourceApp(String sourceApp) {
+        String orderingPath = "LIFF".equalsIgnoreCase(sourceApp)
+                ? "reportStatus.userOrderingNumber"
+                : "reportStatus.governmentOrderingNumber";
+
+        return Sort.by(
+                Sort.Order.asc(orderingPath),
+                Sort.Order.desc("createdAt"));
+    }
+
+    private List<Report> hydrateReports(List<Report> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> orderedIds = reports.stream()
+                .map(Report::getId)
+                .toList();
+
+        List<Report> hydratedReports = reportRepository.findDetailedReportsByIds(orderedIds);
+        Map<Long, Report> hydratedById = hydratedReports.stream()
+                .collect(Collectors.toMap(Report::getId, Function.identity(), (first, second) -> first));
+
+        List<Image> allImages = imageRepository.findAllByReportIds(orderedIds);
+        Map<Long, List<Image>> imagesByReportId = allImages.stream()
+                .collect(Collectors.groupingBy(Image::getReportId));
+
+        List<Report> orderedHydratedReports = new ArrayList<>(orderedIds.size());
+        for (Long id : orderedIds) {
+            Report hydratedReport = hydratedById.get(id);
+            if (hydratedReport != null) {
+                hydratedReport.setImages(imagesByReportId.getOrDefault(id, Collections.emptyList()));
+                orderedHydratedReports.add(hydratedReport);
+            }
+        }
+        return orderedHydratedReports;
     }
 }

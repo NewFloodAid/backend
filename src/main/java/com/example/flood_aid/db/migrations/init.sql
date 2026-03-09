@@ -110,8 +110,15 @@ CREATE INDEX "fk_locations_sub_district" ON "locations" ("sub_district");
 CREATE INDEX "fk_images_report_id" ON "images" ("report_id");
 
 CREATE INDEX "fk_reports_user_id" ON "reports" ("user_id");
+CREATE INDEX "idx_reports_created_at" ON "reports" ("created_at");
+CREATE INDEX "idx_reports_status_id" ON "reports" ("report_status_id");
+CREATE INDEX "idx_reports_created_status" ON "reports" ("created_at", "report_status_id");
 
 CREATE INDEX "fk_report_assistances_report_id" ON "report_assistances" ("report_id");
+CREATE INDEX "idx_report_assistance_logs_report_type_active" ON "report_assistance_logs" ("report_id", "assistance_type_id", "is_active");
+CREATE INDEX "idx_locations_district" ON "locations" ("district");
+CREATE INDEX "idx_locations_province" ON "locations" ("province");
+CREATE INDEX "idx_locations_postal_code" ON "locations" ("postal_code");
 
 CREATE UNIQUE INDEX ON "report_assistances" ("report_id", "assistance_type_id");
 
