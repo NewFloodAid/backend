@@ -312,9 +312,7 @@ public class WordService {
                             captionRun.setFontSize(12);
                             captionRun.setFontFamily("TH SarabunPSK");
                             captionRun.setItalic(true);
-                            String categoryName = image.getImageCategory() != null ? image.getImageCategory().getName()
-                                    : "รูปภาพ";
-                            captionRun.setText(categoryName);
+                            captionRun.setText("รูปภาพ");
                             captionRun.addBreak();
                         }
                     } catch (Exception e) {

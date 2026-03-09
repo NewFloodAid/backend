@@ -1,22 +1,15 @@
 package com.example.flood_aid.services;
 
-import com.example.flood_aid.exceptions.ReportNotFoundException;
 import com.example.flood_aid.models.*;
 import com.example.flood_aid.repositories.AssistanceTypeRepository;
-import com.example.flood_aid.repositories.ImageCategoryRepository;
 import com.example.flood_aid.repositories.ReportRepository;
 import com.example.flood_aid.repositories.ReportStatusRepository;
 import com.example.flood_aid.utils.DateUtils;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.InputStream;
 import java.sql.Timestamp;
@@ -26,11 +19,12 @@ import java.util.*;
 @Service
 @AllArgsConstructor
 public class ReportService {
+    private static final int MAX_FILES_PER_BATCH = 4;
+
     private UploadService uploadService;
     private ReportRepository reportRepository;
     private AssistanceTypeRepository assistanceTypeRepository;
     private ReportStatusRepository reportStatusRepository;
-    private ImageCategoryRepository imageTypeRepository;
 
     public void setReportStatusForReport(Report report) {
         report.setReportStatus(calculateReportStatus(report));
@@ -95,70 +89,15 @@ public class ReportService {
         }
     }
 
-    private void setImagesForReport(Report report, Map<String, List<MultipartFile>> imageParams) {
-        List<Image> images = new ArrayList<>();
-
-        for (java.util.Map.Entry<String, List<MultipartFile>> entry : imageParams.entrySet()) {
-            String paramName = entry.getKey();
-            List<MultipartFile> files = entry.getValue();
-
-            if (files != null) {
-                ImageCategory imageType = imageTypeRepository.findByName(paramName)
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid image type: " + paramName));
-
-                if (files.size() > imageType.getFileLimit()) {
-                    throw new IllegalArgumentException("Exceeded file limit for " + paramName);
-                }
-
-                for (MultipartFile file : files) {
-                    String bucketName = "images";
-                    String originalFileName = file.getOriginalFilename();
-                    String extension = "";
-
-                    if (originalFileName != null && originalFileName.contains(".")) {
-                        extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-                    }
-
-                    String uniqueFileName = UUID.randomUUID() + extension;
-
-                    try (InputStream fileStream = file.getInputStream()) {
-                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(),
-                                file.getContentType());
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error uploading image to MinIO: " + e.getMessage());
-                    }
-
-                    Image image = Image.builder()
-                            .report(report)
-                            .name(uniqueFileName)
-                            .imageCategory(imageType)
-                            .phase("BEFORE")
-                            .build();
-                    images.add(image);
-                }
-            }
-        }
-
-        if (report.getImages() == null) {
-            report.setImages(images);
-        } else {
-            report.getImages().addAll(images);
-        }
-    }
-
     private void setImagesForReport(Report report, Map<String, List<MultipartFile>> imageParams, String phase) {
         List<Image> images = new ArrayList<>();
 
         for (java.util.Map.Entry<String, List<MultipartFile>> entry : imageParams.entrySet()) {
-            String paramName = entry.getKey();
             List<MultipartFile> files = entry.getValue();
 
             if (files != null) {
-                ImageCategory imageType = imageTypeRepository.findByName(paramName)
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid image type: " + paramName));
-
-                if (files.size() > imageType.getFileLimit()) {
-                    throw new IllegalArgumentException("File limit exceeded for image type: " + paramName);
+                if (files.size() > MAX_FILES_PER_BATCH) {
+                    throw new IllegalArgumentException("File limit exceeded. Maximum " + MAX_FILES_PER_BATCH + " files.");
                 }
 
                 for (MultipartFile file : files) {
@@ -182,7 +121,6 @@ public class ReportService {
                     Image image = Image.builder()
                             .report(report)
                             .name(uniqueFileName)
-                            .imageCategory(imageType)
                             .phase(phase)
                             .build();
                     images.add(image);

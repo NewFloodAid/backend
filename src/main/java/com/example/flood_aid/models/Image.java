@@ -26,10 +26,6 @@ public class Image {
     private String phase; // 'BEFORE' or 'AFTER'
 
     @ManyToOne
-    @JoinColumn(name = "image_category_id")
-    private ImageCategory imageCategory;
-
-    @ManyToOne
     @JoinColumn(name = "report_id")
     @JsonIgnore
     private Report report;

@@ -28,13 +28,6 @@ ON CONFLICT ("id") DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('assistance_types', 'id'), coalesce(max(id), 0) + 1, false) FROM assistance_types;
 
-INSERT INTO "image_categories" ("id", "name", "file_limit")
-VALUES
-(1, 'files', 4)
-ON CONFLICT ("id") DO NOTHING;
-
-SELECT setval(pg_get_serial_sequence('image_categories', 'id'), coalesce(max(id), 0) + 1, false) FROM image_categories;
-
 INSERT INTO "configs"("key","value")
 VALUES
 ('government_phone_number', '0832617497')
@@ -44,7 +37,6 @@ INSERT INTO "users_admin" ("username", "password", "created_at")
 SELECT 'admin', 'password', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM "users_admin" WHERE "username" = 'admin');
 
--- Remove dummy reports, locations, and images.
 -- Ensure sequences are reset for these tables even if empty, to start at 1.
 SELECT setval(pg_get_serial_sequence('locations', 'id'), coalesce(max(id), 0) + 1, false) FROM locations;
 SELECT setval(pg_get_serial_sequence('reports', 'id'), coalesce(max(id), 0) + 1, false) FROM reports;
