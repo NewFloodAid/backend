@@ -8,15 +8,22 @@ ON CONFLICT ("id") DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('report_status', 'id'), coalesce(max(id), 0) + 1, false) FROM report_status;
 
-INSERT INTO "assistance_types" ("id", "name", "unit")
+INSERT INTO "assistance_types" (
+  "id",
+  "name",
+  "is_active",
+  "extra_field_label",
+  "extra_field_placeholder",
+  "extra_field_required"
+)
 VALUES
-(1, 'ตัดหญ้า - ต้นไม้', 'งาน'),
-(2, 'ขุดลอกทางระบายน้ำ', 'งาน'),
-(3, 'เก็บขยะ', 'งาน'),
-(4, 'ซ่อมแซมถนน', 'งาน'),
-(5, 'ซ่อมไฟฟ้า', 'งาน'),
-(6, 'ซ่อมเสียงตามสาย', 'งาน'),
-(7, 'อื่นๆ', 'งาน')
+(1, 'ตัดหญ้า - ต้นไม้', true, null, null, false),
+(2, 'ขุดลอกทางระบายน้ำ', true, null, null, false),
+(3, 'เก็บขยะ', true, null, null, false),
+(4, 'ซ่อมแซมถนน', true, null, null, false),
+(5, 'ซ่อมไฟฟ้า', true, 'ใส่เลขหม้อแปลง', 'กรอกเลขหม้อแปลง', true),
+(6, 'ซ่อมเสียงตามสาย', true, null, null, false),
+(7, 'อื่นๆ', true, 'ระบุหัวข้อ', 'กรอกหัวข้อเรื่องอื่นๆ', true)
 ON CONFLICT ("id") DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('assistance_types', 'id'), coalesce(max(id), 0) + 1, false) FROM assistance_types;
@@ -37,7 +44,7 @@ INSERT INTO "users_admin" ("username", "password", "created_at")
 SELECT 'admin', 'password', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM "users_admin" WHERE "username" = 'admin');
 
--- Remove dummy reports, locations, and images. 
+-- Remove dummy reports, locations, and images.
 -- Ensure sequences are reset for these tables even if empty, to start at 1.
 SELECT setval(pg_get_serial_sequence('locations', 'id'), coalesce(max(id), 0) + 1, false) FROM locations;
 SELECT setval(pg_get_serial_sequence('reports', 'id'), coalesce(max(id), 0) + 1, false) FROM reports;

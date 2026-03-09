@@ -35,4 +35,7 @@ public class ReportAssistance {
 
     @Column(name = "is_active")
     private Boolean isActive;
+
+    @Column(name = "extra_detail")
+    private String extraDetail;
 }

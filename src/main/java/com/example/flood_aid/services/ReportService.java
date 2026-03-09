@@ -85,6 +85,7 @@ public class ReportService {
             assistanceLog.setAssistanceType(assistance.getAssistanceType());
             assistanceLog.setQuantity(assistance.getQuantity());
             assistanceLog.setIsActive(assistance.getIsActive());
+            assistanceLog.setExtraDetail(assistance.getExtraDetail());
             assistanceLog.setReport(report);
 
             if (report.getReportAssistanceLogs() == null) {

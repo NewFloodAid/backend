@@ -15,12 +15,20 @@ public class AssistanceType {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    
     @Column(name = "name")
     private String name;
 
-    @Column(name = "unit")
-    private String unit;
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @Column(name = "extra_field_label")
+    private String extraFieldLabel;
+
+    @Column(name = "extra_field_placeholder")
+    private String extraFieldPlaceholder;
+
+    @Column(name = "extra_field_required")
+    private Boolean extraFieldRequired = false;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "assistanceType")
     private List<ReportAssistance> reportAssistances;
