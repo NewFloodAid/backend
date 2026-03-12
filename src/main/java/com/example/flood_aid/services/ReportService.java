@@ -1,6 +1,7 @@
 package com.example.flood_aid.services;
 
 import com.example.flood_aid.models.*;
+import com.example.flood_aid.models.dto.AssistanceTopicStatDto;
 import com.example.flood_aid.repositories.AssistanceTypeRepository;
 import com.example.flood_aid.repositories.ImageRepository;
 import com.example.flood_aid.repositories.ReportRepository;
@@ -287,6 +288,24 @@ public class ReportService {
         }
 
         return new PageImpl<>(hydratedReports, pageable, reportsPage.getTotalElements());
+    }
+
+    public List<AssistanceTopicStatDto> getTopAssistanceTopicStats(
+            Timestamp startDate,
+            Timestamp endDate,
+            int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        Timestamp resolvedStartDate = startDate != null
+                ? startDate
+                : Timestamp.valueOf("1970-01-01 00:00:00");
+        Timestamp resolvedEndDate = endDate != null
+                ? DateUtils.setEndOfDay(endDate)
+                : Timestamp.valueOf("2100-01-01 00:00:00");
+
+        return reportRepository.findTopAssistanceTopicStats(
+                resolvedStartDate,
+                resolvedEndDate,
+                PageRequest.of(0, safeLimit));
     }
 
     private Sort getSortBySourceApp(String sourceApp) {

@@ -2,6 +2,7 @@ package com.example.flood_aid.controllers;
 
 import com.example.flood_aid.exceptions.ReportNotFoundException;
 import com.example.flood_aid.models.Report;
+import com.example.flood_aid.models.dto.AssistanceTopicStatDto;
 import com.example.flood_aid.models.dto.PaginatedResponse;
 import com.example.flood_aid.services.ReportService;
 import com.google.gson.Gson;
@@ -133,6 +134,19 @@ public class ReportController {
 
         applyLiffAnonymization(sourceApp, currentUserId, reportPage.getContent());
         return ResponseEntity.ok(PaginatedResponse.from(reportPage));
+    }
+
+    @GetMapping("/stats/assistance-top")
+    public ResponseEntity<List<AssistanceTopicStatDto>> getTopAssistanceTopicStats(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(defaultValue = "10") Integer limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        Timestamp startTimestamp = startDate != null ? new Timestamp(startDate.getTime()) : null;
+        Timestamp endTimestamp = endDate != null ? new Timestamp(endDate.getTime()) : null;
+
+        return ResponseEntity.ok(
+                reportService.getTopAssistanceTopicStats(startTimestamp, endTimestamp, safeLimit));
     }
 
     @DeleteMapping("/{id}")
