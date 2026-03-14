@@ -112,31 +112,15 @@ public class ReportService {
                     throw new IllegalArgumentException("File limit exceeded. Maximum " + MAX_FILES_PER_BATCH + " files.");
                 }
 
-                for (MultipartFile file : files) {
-                    String bucketName = "images";
-                    String originalFileName = file.getOriginalFilename();
-                    String extension = "";
-
-                    if (originalFileName != null && originalFileName.contains(".")) {
-                        extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-                    }
-
-                    String uniqueFileName = UUID.randomUUID() + extension;
-
-                    try (InputStream fileStream = file.getInputStream()) {
-                        uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(),
-                                file.getContentType());
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error uploading image to MinIO: " + e.getMessage());
-                    }
-
-                    Image image = Image.builder()
-                            .report(report)
-                            .name(uniqueFileName)
-                            .phase(phase)
-                            .build();
-                    images.add(image);
+                List<Image> uploadedBatchImages = Collections.synchronizedList(new ArrayList<>());
+                try {
+                    files.parallelStream().forEach(file -> uploadedBatchImages.add(uploadImageFile(report, file, phase)));
+                } catch (RuntimeException e) {
+                    uploadService.deleteImages("images", uploadedBatchImages);
+                    throw e;
                 }
+
+                images.addAll(uploadedBatchImages);
             }
         }
 
@@ -145,6 +129,29 @@ public class ReportService {
         } else {
             report.getImages().addAll(images);
         }
+    }
+
+    private Image uploadImageFile(Report report, MultipartFile file, String phase) {
+        String bucketName = "images";
+        String originalFileName = file.getOriginalFilename();
+        String extension = "";
+
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        }
+
+        String uniqueFileName = UUID.randomUUID() + extension;
+        try (InputStream fileStream = file.getInputStream()) {
+            uploadService.putObject(bucketName, uniqueFileName, fileStream, file.getSize(), file.getContentType());
+        } catch (Exception e) {
+            throw new RuntimeException("Error uploading image to Cloudinary: " + e.getMessage(), e);
+        }
+
+        return Image.builder()
+                .report(report)
+                .name(uniqueFileName)
+                .phase(phase)
+                .build();
     }
 
     public Report updateReport(Report report, Map<String, List<MultipartFile>> imageParams) {
@@ -165,10 +172,10 @@ public class ReportService {
                 image.setReport(existingReport);
             }
 
-            // Determine phase for new images
+            // Determine phase for new images from the previous status.
+            // This allows updating SENT -> SUCCESS and uploading AFTER images in the same request.
             String phase = "BEFORE";
-            if (existingReport.getReportStatus() != null
-                    && existingReport.getReportStatus().getStatus() == Status.SENT) {
+            if (oldStatus == Status.SENT || oldStatus == Status.SUCCESS) {
                 phase = "AFTER";
             }
             setImagesForReport(existingReport, imageParams, phase);

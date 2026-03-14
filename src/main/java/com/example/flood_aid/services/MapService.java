@@ -31,10 +31,10 @@ public class MapService {
     @Value("${osm.static.zoom:18}")
     private int osmZoom;
 
-    @Value("${osm.static.width:640}")
+    @Value("${osm.static.width:1024}")
     private int osmWidth;
 
-    @Value("${osm.static.height:480}")
+    @Value("${osm.static.height:768}")
     private int osmHeight;
 
     @Value("${osm.static.tile.url.template:https://tile.openstreetmap.org/%d/%d/%d.png}")
@@ -50,8 +50,8 @@ public class MapService {
 
         try {
             int zoom = Math.max(0, Math.min(osmZoom, 19));
-            int width = Math.max(200, Math.min(osmWidth, 1024));
-            int height = Math.max(200, Math.min(osmHeight, 1024));
+            int width = Math.max(320, Math.min(osmWidth, 1600));
+            int height = Math.max(240, Math.min(osmHeight, 1600));
 
             BufferedImage mapImage = renderOsmStaticMap(
                     location.getLatitude(),
@@ -116,7 +116,9 @@ public class MapService {
         graphics.setColor(Color.WHITE);
         graphics.fillRect(0, 0, width, height);
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 
         try {
             for (int tileY = startTileY; tileY <= endTileY; tileY++) {
@@ -212,7 +214,7 @@ public class MapService {
 
     private void drawPin(Graphics2D graphics, double centerX, double centerY) {
         // Scale from the same 40x54 shape used in frontend Leaflet pin icon.
-        double scale = 0.8;
+        double scale = 0.55;
         double offsetX = centerX - (20.0 * scale);
         double offsetY = centerY - (54.0 * scale);
 

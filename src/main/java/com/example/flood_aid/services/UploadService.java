@@ -32,16 +32,6 @@ public class UploadService {
 
     public void putObject(String bucketName, String objectName, InputStream fileStream, long size, String contentType) {
         try {
-            // Read stream to bytes because Cloudinary upload might need a File or byte
-            // array or simpler stream handling
-            // Cloudinary's upload method accepts InputStream.
-            // We want to verify if 'objectName' has extension.
-
-            // We'll treat 'bucketName' as folder.
-            // 'objectName' is the filename (e.g. uuid.jpg).
-            // Cloudinary best practice: strip extension from public_id, request with
-            // extension.
-
             String publicId = objectName;
             int lastDotIndex = objectName.lastIndexOf('.');
             if (lastDotIndex > 0) {
@@ -53,30 +43,11 @@ public class UploadService {
                     "folder", bucketName,
                     "public_id", publicId,
                     "resource_type", "auto",
-                    "overwrite", true);
+                    "overwrite", true,
+                    "use_filename", false);
 
-            // Note: Cloudinary might add the extension automatically if not in public_id,
-            // or result in doubled extension.
-            // But we can enable 'use_filename' => true, 'unique_filename' => false etc.
-            // For simplicity, let's just pass the stream.
-
-            // To prevent doubling extension if objectName has it:
-            // If objectName is "uuid.png", Cloudinary public_id will be "uuid.png" (if we
-            // force it).
-            // Requesting it back: "uuid.png.png" might happen if we are not careful with
-            // formatting options.
-            // However, Minio treated objectName as the key.
-            // Let's try to set use_filename=true, unique_filename=false, and
-            // public_id=objectName.
-
-            // Actually, safest is to just use what was passed.
+            // Cloudinary Java SDK is most stable with byte[] uploads for multipart input.
             cloudinary.uploader().upload(fileStream.readAllBytes(), params);
-
-            // Note: fileStream.readAllBytes() loads into memory. If files are huge, this is
-            // bad.
-            // But for images it's usually fine.
-            // Alternatively, pass the temp file if available, but we only have InputStream
-            // here.
 
         } catch (Exception e) {
             throw new RuntimeException("Error occurred while uploading object to Cloudinary: " + e.getMessage());

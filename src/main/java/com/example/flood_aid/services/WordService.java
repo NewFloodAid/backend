@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.apache.xmlbeans.XmlCursor;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,14 @@ import java.io.InputStream;
 @RequiredArgsConstructor
 @Slf4j
 public class WordService {
+    private static final int WORD_IMAGE_MAX_WIDTH = 430;
+    private static final int WORD_IMAGE_MAX_HEIGHT = 560;
+    private static final int WORD_IMAGE_FALLBACK_WIDTH = 400;
+    private static final int WORD_IMAGE_FALLBACK_HEIGHT = 300;
+    private static final int WORD_MAP_MAX_WIDTH = 520;
+    private static final int WORD_MAP_MAX_HEIGHT = 390;
+    private static final int WORD_MAP_FALLBACK_WIDTH = 500;
+    private static final int WORD_MAP_FALLBACK_HEIGHT = 375;
 
     private final ReportRepository reportRepository;
     private final MapService mapService;
@@ -90,13 +101,7 @@ public class WordService {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
             // --- Conditional greeting text replacement ---
-            String resolvedAssistanceType = "";
-            if (report.getReportAssistances() != null && !report.getReportAssistances().isEmpty()) {
-                resolvedAssistanceType = report.getReportAssistances().stream()
-                        .filter(ra -> Boolean.TRUE.equals(ra.getIsActive()))
-                        .map(ra -> ra.getAssistanceType().getName())
-                        .collect(Collectors.joining(", "));
-            }
+            String resolvedAssistanceType = buildActiveAssistanceNames(report);
 
             if (resolvedAssistanceType.contains("ซ่อมไฟฟ้า")) {
                 for (XWPFParagraph p : document.getParagraphs()) {
@@ -124,17 +129,12 @@ public class WordService {
 
             if (targetParagraph != null) {
                 // Prepare dynamic data
-                String assistanceType = "";
-                if (report.getReportAssistances() != null && !report.getReportAssistances().isEmpty()) {
-                    assistanceType = report.getReportAssistances().stream()
-                            .filter(ra -> Boolean.TRUE.equals(ra.getIsActive()))
-                            .map(ra -> ra.getAssistanceType().getName())
-                            .collect(Collectors.joining(", "));
-                } else {
+                String assistanceType = buildActiveAssistanceNames(report);
+                if (!hasText(assistanceType)) {
                     assistanceType = "-";
                 }
 
-                String additionalDetail = report.getAdditionalDetail() != null ? report.getAdditionalDetail() : "-";
+                String additionalDetail = hasText(report.getAdditionalDetail()) ? report.getAdditionalDetail() : "-";
 
                 String address = "-";
                 if (report.getLocation() != null && report.getLocation().getAddress() != null) {
@@ -179,9 +179,14 @@ public class WordService {
 
                 // Add image
                 try (ByteArrayInputStream imageInputStream = new ByteArrayInputStream(mapBytes)) {
-                    // Reduced size to fit on one page
-                    int width = 500;
-                    int height = 500;
+                    int[] mapSize = resolveWordImageSize(
+                            mapBytes,
+                            WORD_MAP_MAX_WIDTH,
+                            WORD_MAP_MAX_HEIGHT,
+                            WORD_MAP_FALLBACK_WIDTH,
+                            WORD_MAP_FALLBACK_HEIGHT);
+                    int width = mapSize[0];
+                    int height = mapSize[1];
                     run.addPicture(imageInputStream, XWPFDocument.PICTURE_TYPE_PNG, "map.png", Units.toEMU(width),
                             Units.toEMU(height));
                 } catch (Exception e) {
@@ -245,12 +250,51 @@ public class WordService {
             throw new IOException("No images found for report " + reportId);
         }
 
-        // Group images by phase
-        Map<String, List<Image>> imagesByPhase = images.stream()
+        List<Image> orderedImages = images.stream()
+                .sorted(Comparator
+                        .comparingInt((Image img) -> phasePriority(img.getPhase()))
+                        .thenComparing(img -> img.getId() != null ? img.getId() : Long.MAX_VALUE))
+                .toList();
+        Map<String, List<Image>> imagesByPhase = orderedImages.stream()
                 .collect(Collectors.groupingBy(img -> img.getPhase() != null ? img.getPhase() : "UNKNOWN"));
 
         try (XWPFDocument document = new XWPFDocument();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            if (reportId != null) {
+                for (Image image : orderedImages) {
+                    try {
+                        byte[] imageBytes = uploadService.getObject("images", image.getName());
+                        if (imageBytes == null || imageBytes.length == 0) {
+                            continue;
+                        }
+
+                        XWPFParagraph imageParagraph = document.createParagraph();
+                        imageParagraph.setAlignment(ParagraphAlignment.CENTER);
+                        XWPFRun imageRun = imageParagraph.createRun();
+
+                        int pictureType = XWPFDocument.PICTURE_TYPE_JPEG;
+                        String imageName = image.getName().toLowerCase();
+                        if (imageName.endsWith(".png")) {
+                            pictureType = XWPFDocument.PICTURE_TYPE_PNG;
+                        } else if (imageName.endsWith(".gif")) {
+                            pictureType = XWPFDocument.PICTURE_TYPE_GIF;
+                        }
+
+                        int[] imageSize = resolveWordImageSize(imageBytes);
+                        try (ByteArrayInputStream imageInputStream = new ByteArrayInputStream(imageBytes)) {
+                            imageRun.addPicture(imageInputStream, pictureType, image.getName(),
+                                    Units.toEMU(imageSize[0]), Units.toEMU(imageSize[1]));
+                            imageRun.addBreak();
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to add image {} to Word document", image.getName(), e);
+                    }
+                }
+
+                document.write(baos);
+                return baos.toByteArray();
+            }
 
             // Add title
             XWPFParagraph titleParagraph = document.createParagraph();
@@ -297,12 +341,11 @@ public class WordService {
                                 pictureType = XWPFDocument.PICTURE_TYPE_GIF;
                             }
 
+                            int[] imageSize = resolveWordImageSize(imageBytes);
+
                             try (ByteArrayInputStream imageInputStream = new ByteArrayInputStream(imageBytes)) {
-                                // Scale image to fit page width (max ~450 points width)
-                                int width = 400;
-                                int height = 300;
                                 imageRun.addPicture(imageInputStream, pictureType, image.getName(),
-                                        Units.toEMU(width), Units.toEMU(height));
+                                        Units.toEMU(imageSize[0]), Units.toEMU(imageSize[1]));
                             }
 
                             // Add image caption
@@ -327,5 +370,77 @@ public class WordService {
             document.write(baos);
             return baos.toByteArray();
         }
+    }
+
+    private int[] resolveWordImageSize(byte[] imageBytes) {
+        return resolveWordImageSize(
+                imageBytes,
+                WORD_IMAGE_MAX_WIDTH,
+                WORD_IMAGE_MAX_HEIGHT,
+                WORD_IMAGE_FALLBACK_WIDTH,
+                WORD_IMAGE_FALLBACK_HEIGHT);
+    }
+
+    private int[] resolveWordImageSize(
+            byte[] imageBytes,
+            int maxWidth,
+            int maxHeight,
+            int fallbackWidth,
+            int fallbackHeight) {
+        try (ByteArrayInputStream imageInputStream = new ByteArrayInputStream(imageBytes)) {
+            BufferedImage bufferedImage = ImageIO.read(imageInputStream);
+            if (bufferedImage == null) {
+                return new int[] { fallbackWidth, fallbackHeight };
+            }
+
+            int imageWidth = bufferedImage.getWidth();
+            int imageHeight = bufferedImage.getHeight();
+            if (imageWidth <= 0 || imageHeight <= 0) {
+                return new int[] { fallbackWidth, fallbackHeight };
+            }
+
+            double widthScale = (double) maxWidth / imageWidth;
+            double heightScale = (double) maxHeight / imageHeight;
+            double scale = Math.min(widthScale, heightScale);
+            scale = Math.min(scale, 1.0d);
+
+            int targetWidth = Math.max(1, (int) Math.round(imageWidth * scale));
+            int targetHeight = Math.max(1, (int) Math.round(imageHeight * scale));
+            return new int[] { targetWidth, targetHeight };
+        } catch (Exception e) {
+            log.warn("Failed to detect image dimensions for Word export, using fallback size: {}", e.getMessage());
+            return new int[] { fallbackWidth, fallbackHeight };
+        }
+    }
+
+    private int phasePriority(String phase) {
+        if ("BEFORE".equalsIgnoreCase(phase)) {
+            return 0;
+        }
+        if ("AFTER".equalsIgnoreCase(phase)) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private String buildActiveAssistanceNames(Report report) {
+        if (report.getReportAssistances() == null || report.getReportAssistances().isEmpty()) {
+            return "";
+        }
+
+        return report.getReportAssistances().stream()
+                .filter(ra -> Boolean.TRUE.equals(ra.getIsActive()))
+                .map(ra -> {
+                    String typeName = ra.getAssistanceType().getName();
+                    String extraDetail = ra.getExtraDetail();
+                    return hasText(extraDetail)
+                            ? typeName + ": " + extraDetail.trim()
+                            : typeName;
+                })
+                .collect(Collectors.joining(", "));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
