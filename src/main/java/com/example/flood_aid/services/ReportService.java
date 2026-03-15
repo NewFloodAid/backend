@@ -52,7 +52,11 @@ public class ReportService {
             getImageURLForReport(savedReport);
             return savedReport;
         } catch (Exception e) {
-            uploadService.deleteImages("images", report.getImages());
+            try {
+                uploadService.deleteImages("images", report.getImages());
+            } catch (RuntimeException cleanupException) {
+                e.addSuppressed(cleanupException);
+            }
             throw new RuntimeException("Failed to save report: " + e.getMessage(), e);
         }
     }
@@ -116,7 +120,11 @@ public class ReportService {
                 try {
                     files.parallelStream().forEach(file -> uploadedBatchImages.add(uploadImageFile(report, file, phase)));
                 } catch (RuntimeException e) {
-                    uploadService.deleteImages("images", uploadedBatchImages);
+                    try {
+                        uploadService.deleteImages("images", uploadedBatchImages);
+                    } catch (RuntimeException cleanupException) {
+                        e.addSuppressed(cleanupException);
+                    }
                     throw e;
                 }
 
@@ -205,8 +213,13 @@ public class ReportService {
         }
     }
 
+    @Transactional
     public void deleteReportById(Long id) {
-        reportRepository.deleteById(id);
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found with ID: " + id));
+        List<Image> reportImages = imageRepository.findAllByReportIds(List.of(id));
+        uploadService.deleteImages("images", reportImages);
+        reportRepository.delete(report);
     }
 
     public void getImageURLForReport(Report report) {
