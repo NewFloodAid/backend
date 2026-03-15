@@ -1,5 +1,6 @@
 package com.example.flood_aid.services;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -7,18 +8,17 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
+@Slf4j
 public class LineAuthService {
 
     private static final String LINE_VERIFY_URL = "https://api.line.me/oauth2/v2.1/verify";
 
-    public boolean verifyIdToken(String idToken, String clientId) {
+    public Optional<String> verifyAndExtractUserId(String idToken, String clientId) {
         try {
             RestTemplate restTemplate = new RestTemplate();
-
-            System.out.println("Verifying ID Token: " + idToken);
-            System.out.println("Using Client ID: " + clientId);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -36,18 +36,17 @@ public class LineAuthService {
             );
 
             if (response.getStatusCode() == HttpStatus.OK) {
-
-                System.out.println("LINE Response: " + response.getBody());
-                return true;
-            } else {
-
-                System.err.println("LINE ID Token verification failed: " + response.getBody());
-                return false;
+                Map<?, ?> body = response.getBody();
+                Object sub = body != null ? body.get("sub") : null;
+                if (sub instanceof String lineUserId && !lineUserId.isBlank()) {
+                    return Optional.of(lineUserId);
+                }
+                log.warn("LINE token verification succeeded but subject claim was missing.");
             }
+            return Optional.empty();
         } catch (Exception e) {
-
-            System.err.println("LINE ID Token verification failed: " + e.getMessage());
-            return false;
+            log.warn("LINE ID Token verification failed: {}", e.getMessage());
+            return Optional.empty();
         }
     }
 }

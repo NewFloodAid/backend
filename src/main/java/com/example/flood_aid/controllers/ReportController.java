@@ -1,5 +1,6 @@
 package com.example.flood_aid.controllers;
 
+import com.example.flood_aid.configs.JwtPrincipal;
 import com.example.flood_aid.exceptions.ReportNotFoundException;
 import com.example.flood_aid.models.Report;
 import com.example.flood_aid.models.dto.AssistanceTopicStatDto;
@@ -10,9 +11,13 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,6 +43,7 @@ public class ReportController {
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
         Gson gson = new Gson();
         Report report = gson.fromJson(reportString, Report.class);
+        applyLiffIdentityToReport(report);
 
         Map<String, List<MultipartFile>> imageParams = Map.of(
                 "files", files != null ? files : List.of());
@@ -52,6 +58,7 @@ public class ReportController {
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
         Gson gson = new Gson();
         Report report = gson.fromJson(reportString, Report.class);
+        applyLiffIdentityToReport(report);
         Map<String, List<MultipartFile>> imageParams = Map.of(
                 "files", files != null ? files : List.of());
 
@@ -61,7 +68,6 @@ public class ReportController {
     @GetMapping("/filters")
     public ResponseEntity<List<Report>> filterReports(
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
-            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestParam(required = false) String subdistrict,
             @RequestParam(name = "subDistrict", required = false) String subDistrict,
             @RequestParam(required = false) String district,
@@ -73,6 +79,9 @@ public class ReportController {
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) Long assistanceTypeId,
             @RequestParam(required = false) String keyword) {
+        JwtPrincipal principal = getCurrentJwtPrincipal();
+        String resolvedSourceApp = resolveSourceApp(sourceApp, principal);
+        UUID currentUserId = resolveCurrentLiffUserId(principal);
         Timestamp startTimestamp = resolveStartTimestamp(startDate);
         Timestamp endTimestamp = resolveEndTimestamp(endDate);
         String resolvedSubdistrict = firstNonBlank(subdistrict, subDistrict);
@@ -85,19 +94,18 @@ public class ReportController {
                 reportStatusId,
                 startTimestamp,
                 endTimestamp,
-                sourceApp,
+                resolvedSourceApp,
                 userId,
                 assistanceTypeId,
                 keyword);
 
-        applyLiffAnonymization(sourceApp, currentUserId, reports);
+        applyLiffAnonymization(resolvedSourceApp, currentUserId, reports);
         return ResponseEntity.ok(reports);
     }
 
     @GetMapping("/filters/paged")
     public ResponseEntity<PaginatedResponse<Report>> filterReportsPaged(
             @RequestHeader(value = "X-Source-App", required = false) String sourceApp,
-            @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId,
             @RequestParam(required = false) String subdistrict,
             @RequestParam(name = "subDistrict", required = false) String subDistrict,
             @RequestParam(required = false) String district,
@@ -111,6 +119,9 @@ public class ReportController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "8") Integer size) {
+        JwtPrincipal principal = getCurrentJwtPrincipal();
+        String resolvedSourceApp = resolveSourceApp(sourceApp, principal);
+        UUID currentUserId = resolveCurrentLiffUserId(principal);
         int safePage = Math.max(page, 0);
         int safeSize = Math.max(1, Math.min(size, 100));
 
@@ -125,14 +136,14 @@ public class ReportController {
                 reportStatusId,
                 startTimestamp,
                 endTimestamp,
-                sourceApp,
+                resolvedSourceApp,
                 userId,
                 assistanceTypeId,
                 keyword,
                 safePage,
                 safeSize);
 
-        applyLiffAnonymization(sourceApp, currentUserId, reportPage.getContent());
+        applyLiffAnonymization(resolvedSourceApp, currentUserId, reportPage.getContent());
         return ResponseEntity.ok(PaginatedResponse.from(reportPage));
     }
 
@@ -225,5 +236,45 @@ public class ReportController {
             return primary;
         }
         return fallback;
+    }
+
+    private void applyLiffIdentityToReport(Report report) {
+        JwtPrincipal principal = getCurrentJwtPrincipal();
+        if (principal == null || !"LIFF".equalsIgnoreCase(principal.appType())) {
+            return;
+        }
+
+        UUID currentUserId = principal.userId();
+        if (currentUserId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "LIFF user identity is missing from token.");
+        }
+        report.setUserId(currentUserId);
+    }
+
+    private JwtPrincipal getCurrentJwtPrincipal() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof JwtPrincipal jwtPrincipal) {
+            return jwtPrincipal;
+        }
+        return null;
+    }
+
+    private UUID resolveCurrentLiffUserId(JwtPrincipal principal) {
+        if (principal != null && "LIFF".equalsIgnoreCase(principal.appType())) {
+            return principal.userId();
+        }
+        return null;
+    }
+
+    private String resolveSourceApp(String sourceAppHeader, JwtPrincipal principal) {
+        if (sourceAppHeader != null && !sourceAppHeader.isBlank()) {
+            return sourceAppHeader;
+        }
+        return principal != null ? principal.appType() : null;
     }
 }

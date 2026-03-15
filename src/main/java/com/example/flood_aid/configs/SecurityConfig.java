@@ -13,14 +13,8 @@ public class SecurityConfig {
 
     private final JwtRequestFilter jwtRequestFilter;
 
-    public static final boolean requireAuthForFilters = false; // Change to true to require headers
-
     public SecurityConfig(JwtRequestFilter jwtRequestFilter) {
         this.jwtRequestFilter = jwtRequestFilter;
-    }
-
-    public static boolean isRequireAuthForFilters() {
-        return requireAuthForFilters;
     }
 
     @Bean
@@ -28,13 +22,8 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> {
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers("/api/auth/login").permitAll();
-
-               if (requireAuthForFilters) {
-                   auth.requestMatchers("/api/reports/**").authenticated();
-               } else {
-                   auth.requestMatchers("/api/reports/**").permitAll();
-               }
+                    .requestMatchers("/api/auth/login", "/api/auth/line-login").permitAll()
+                    .requestMatchers("/api/reports/**").authenticated();
 
                 auth.anyRequest().permitAll();
             })
