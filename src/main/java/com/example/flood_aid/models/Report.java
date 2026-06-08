@@ -36,6 +36,14 @@ public class Report {
     @JoinColumn(name = "location_id")
     private Location location;
 
+    @ManyToOne
+    @JoinColumn(name = "district_id")
+    private District district;
+
+    @ManyToOne
+    @JoinColumn(name = "assigned_admin_id")
+    private Admin assignedAdmin;
+
     @Column(name = "main_phone_number")
     private String mainPhoneNumber;
 

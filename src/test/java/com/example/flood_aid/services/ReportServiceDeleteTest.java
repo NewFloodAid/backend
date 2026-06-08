@@ -35,6 +35,9 @@ class ReportServiceDeleteTest {
     @Mock
     private ReportStatusRepository reportStatusRepository;
 
+    @Mock
+    private DistrictResolutionService districtResolutionService;
+
     @Test
     void deleteReportByIdDeletesCloudinaryAssetsBeforeRemovingReport() {
         StubUploadService uploadService = new StubUploadService();
@@ -43,7 +46,8 @@ class ReportServiceDeleteTest {
                 reportRepository,
                 imageRepository,
                 assistanceTypeRepository,
-                reportStatusRepository);
+                reportStatusRepository,
+                districtResolutionService);
 
         Long reportId = 99L;
         Report report = new Report();
@@ -70,7 +74,8 @@ class ReportServiceDeleteTest {
                 reportRepository,
                 imageRepository,
                 assistanceTypeRepository,
-                reportStatusRepository);
+                reportStatusRepository,
+                districtResolutionService);
 
         Long reportId = 100L;
         Report report = new Report();

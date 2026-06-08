@@ -30,13 +30,31 @@ public final class ReportSpecifications {
             Timestamp endDate,
             UUID userId,
             Long assistanceTypeId,
-            String keyword) {
+            String keyword,
+            List<Long> districtIds) {
         return Specification.where(withUserId(userId))
                 .and(withCreatedAtRange(startDate, endDate))
                 .and(withLocationFilters(subdistrict, district, province, postalCode))
                 .and(withReportStatus(reportStatusId))
                 .and(withAssistanceType(assistanceTypeId))
-                .and(withKeyword(keyword));
+                .and(withKeyword(keyword))
+                .and(withDistrictIds(districtIds));
+    }
+
+    // Backward-compatible overload without districtIds
+    public static Specification<Report> withFilters(
+            String subdistrict,
+            String district,
+            String province,
+            String postalCode,
+            Long reportStatusId,
+            Timestamp startDate,
+            Timestamp endDate,
+            UUID userId,
+            Long assistanceTypeId,
+            String keyword) {
+        return withFilters(subdistrict, district, province, postalCode,
+                reportStatusId, startDate, endDate, userId, assistanceTypeId, keyword, null);
     }
 
     private static Specification<Report> withUserId(UUID userId) {
@@ -165,5 +183,14 @@ public final class ReportSpecifications {
 
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private static Specification<Report> withDistrictIds(List<Long> districtIds) {
+        return (root, query, criteriaBuilder) -> {
+            if (districtIds == null || districtIds.isEmpty()) {
+                return criteriaBuilder.conjunction();
+            }
+            return root.get("district").get("id").in(districtIds);
+        };
     }
 }

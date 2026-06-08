@@ -37,6 +37,7 @@ public class ReportService {
     private ImageRepository imageRepository;
     private AssistanceTypeRepository assistanceTypeRepository;
     private ReportStatusRepository reportStatusRepository;
+    private DistrictResolutionService districtResolutionService;
 
     public void setReportStatusForReport(Report report) {
         report.setReportStatus(calculateReportStatus(report));
@@ -48,6 +49,18 @@ public class ReportService {
             setReportAssistancesForReport(report);
             setImagesForReport(report, imageParams, "BEFORE");
             setReportStatusForReport(report);
+
+            // Auto-resolve district from coordinates
+            if (report.getLocation() != null && report.getLocation().getLatitude() != null
+                    && report.getLocation().getLongitude() != null) {
+                District district = districtResolutionService.resolveDistrict(
+                        report.getLocation().getLatitude(), report.getLocation().getLongitude());
+                if (district != null) {
+                    report.setDistrict(district);
+                    report.getLocation().setDistrictEntity(district);
+                }
+            }
+
             Report savedReport = reportRepository.save(report);
             getImageURLForReport(savedReport);
             return savedReport;
@@ -171,13 +184,50 @@ public class ReportService {
                     ? existingReport.getReportStatus().getStatus()
                     : null;
 
-            BeanUtils.copyProperties(report, existingReport, "createdAt", "updatedAt", "processedAt", "sentAt",
-                    "editedAt");
-            for (ReportAssistance assistance : existingReport.getReportAssistances()) {
-                assistance.setReport(existingReport);
+            // Manually map fields to avoid null overwriting and collection detachment
+            if (report.getFirstName() != null) existingReport.setFirstName(report.getFirstName());
+            if (report.getLastName() != null) existingReport.setLastName(report.getLastName());
+            if (report.getMainPhoneNumber() != null) existingReport.setMainPhoneNumber(report.getMainPhoneNumber());
+            if (report.getReservePhoneNumber() != null) existingReport.setReservePhoneNumber(report.getReservePhoneNumber());
+            if (report.getIsAnonymous() != null) existingReport.setIsAnonymous(report.getIsAnonymous());
+            if (report.getAdditionalDetail() != null) existingReport.setAdditionalDetail(report.getAdditionalDetail());
+            if (report.getAfterAdditionalDetail() != null) existingReport.setAfterAdditionalDetail(report.getAfterAdditionalDetail());
+            if (report.getReportStatus() != null) existingReport.setReportStatus(report.getReportStatus());
+
+            if (report.getLocation() != null) {
+                if (existingReport.getLocation() == null) {
+                    existingReport.setLocation(report.getLocation());
+                } else {
+                    Location eLoc = existingReport.getLocation();
+                    Location nLoc = report.getLocation();
+                    if (nLoc.getLatitude() != null) eLoc.setLatitude(nLoc.getLatitude());
+                    if (nLoc.getLongitude() != null) eLoc.setLongitude(nLoc.getLongitude());
+                    if (nLoc.getAddress() != null) eLoc.setAddress(nLoc.getAddress());
+                    if (nLoc.getSubDistrict() != null) eLoc.setSubDistrict(nLoc.getSubDistrict());
+                    if (nLoc.getDistrict() != null) eLoc.setDistrict(nLoc.getDistrict());
+                    if (nLoc.getProvince() != null) eLoc.setProvince(nLoc.getProvince());
+                    if (nLoc.getPostalCode() != null) eLoc.setPostalCode(nLoc.getPostalCode());
+                }
             }
-            for (Image image : existingReport.getImages()) {
-                image.setReport(existingReport);
+
+            if (report.getReportAssistances() != null) {
+                Map<Long, ReportAssistance> existingAssistances = existingReport.getReportAssistances().stream()
+                        .filter(ra -> ra.getAssistanceType() != null)
+                        .collect(Collectors.toMap(ra -> ra.getAssistanceType().getId(), Function.identity(), (first, second) -> first));
+
+                for (ReportAssistance incoming : report.getReportAssistances()) {
+                    if (incoming.getAssistanceType() == null || incoming.getAssistanceType().getId() == null) continue;
+                    Long typeId = incoming.getAssistanceType().getId();
+                    if (existingAssistances.containsKey(typeId)) {
+                        ReportAssistance existing = existingAssistances.get(typeId);
+                        existing.setQuantity(incoming.getQuantity());
+                        if (incoming.getIsActive() != null) existing.setIsActive(incoming.getIsActive());
+                        if (incoming.getExtraDetail() != null) existing.setExtraDetail(incoming.getExtraDetail());
+                    } else {
+                        incoming.setReport(existingReport);
+                        existingReport.getReportAssistances().add(incoming);
+                    }
+                }
             }
 
             // Determine phase for new images from the previous status.
@@ -249,7 +299,8 @@ public class ReportService {
             String sourceApp,
             UUID userId,
             Long assistanceTypeId,
-            String keyword
+            String keyword,
+            List<Long> districtIds
     ) {
         Specification<Report> specification = ReportSpecifications.withFilters(
                 subdistrict,
@@ -261,7 +312,8 @@ public class ReportService {
                 DateUtils.setEndOfDay(endDate),
                 userId,
                 assistanceTypeId,
-                keyword);
+                keyword,
+                districtIds);
 
         List<Report> reports = reportRepository.findAll(specification, getSortBySourceApp(sourceApp));
         reports = hydrateReports(reports);
@@ -271,6 +323,25 @@ public class ReportService {
 
         getImageURLForReports(reports);
         return reports;
+    }
+
+    // Backward-compatible overload without districtIds
+    public List<Report> filterReports(
+            String subdistrict,
+            String district,
+            String province,
+            String postalCode,
+            Long reportStatusId,
+            Timestamp startDate,
+            Timestamp endDate,
+            String sourceApp,
+            UUID userId,
+            Long assistanceTypeId,
+            String keyword
+    ) {
+        return filterReports(subdistrict, district, province, postalCode,
+                reportStatusId, startDate, endDate, sourceApp, userId,
+                assistanceTypeId, keyword, null);
     }
 
     public Page<Report> filterReportsPaged(
@@ -285,6 +356,7 @@ public class ReportService {
             UUID userId,
             Long assistanceTypeId,
             String keyword,
+            List<Long> districtIds,
             int page,
             int size) {
         Specification<Report> specification = ReportSpecifications.withFilters(
@@ -297,7 +369,8 @@ public class ReportService {
                 DateUtils.setEndOfDay(endDate),
                 userId,
                 assistanceTypeId,
-                keyword);
+                keyword,
+                districtIds);
 
         Pageable pageable = PageRequest.of(page, size, getSortBySourceApp(sourceApp));
         Page<Report> reportsPage = reportRepository.findAll(specification, pageable);
@@ -308,6 +381,26 @@ public class ReportService {
         }
 
         return new PageImpl<>(hydratedReports, pageable, reportsPage.getTotalElements());
+    }
+
+    // Backward-compatible overload without districtIds
+    public Page<Report> filterReportsPaged(
+            String subdistrict,
+            String district,
+            String province,
+            String postalCode,
+            Long reportStatusId,
+            Timestamp startDate,
+            Timestamp endDate,
+            String sourceApp,
+            UUID userId,
+            Long assistanceTypeId,
+            String keyword,
+            int page,
+            int size) {
+        return filterReportsPaged(subdistrict, district, province, postalCode,
+                reportStatusId, startDate, endDate, sourceApp, userId,
+                assistanceTypeId, keyword, null, page, size);
     }
 
     public List<AssistanceTopicStatDto> getTopAssistanceTopicStats(

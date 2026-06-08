@@ -33,11 +33,13 @@ VALUES
 ('government_phone_number', '0832617497')
 ON CONFLICT ("key") DO NOTHING;
 
-INSERT INTO "users_admin" ("username", "password", "created_at")
-SELECT 'admin', 'password', NOW()
-WHERE NOT EXISTS (SELECT 1 FROM "users_admin" WHERE "username" = 'admin');
+-- Super Admin with BCrypt-hashed password (password: 'Admin@1234')
+INSERT INTO "admins" ("username", "email", "password_hash", "full_name", "role", "is_active")
+SELECT 'superadmin', 'admin@chiangmai.go.th', '$2a$12$LJ3m4ks0Y5sQNOBMGFGWI.xJ2BGOO/5R3N3KsLRRWxYb8nnKHnT9G', 'ผู้ดูแลระบบ', 'SUPER_ADMIN', true
+WHERE NOT EXISTS (SELECT 1 FROM "admins" WHERE "username" = 'superadmin');
 
 -- Ensure sequences are reset for these tables even if empty, to start at 1.
 SELECT setval(pg_get_serial_sequence('locations', 'id'), coalesce(max(id), 0) + 1, false) FROM locations;
 SELECT setval(pg_get_serial_sequence('reports', 'id'), coalesce(max(id), 0) + 1, false) FROM reports;
 SELECT setval(pg_get_serial_sequence('images', 'id'), coalesce(max(id), 0) + 1, false) FROM images;
+SELECT setval(pg_get_serial_sequence('admins', 'id'), coalesce(max(id), 0) + 1, false) FROM admins;

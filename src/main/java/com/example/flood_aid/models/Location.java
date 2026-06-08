@@ -31,6 +31,10 @@ public class Location {
     @Column(name = "province")
     private String province;
 
+    @ManyToOne
+    @JoinColumn(name = "district_id")
+    private District districtEntity;
+
     @Column(name = "postal_code")
     private String postalCode;
 }

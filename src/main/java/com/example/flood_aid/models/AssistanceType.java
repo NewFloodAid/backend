@@ -30,6 +30,11 @@ public class AssistanceType {
     @Column(name = "extra_field_required")
     private Boolean extraFieldRequired = false;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "district_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private District district;
+
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "assistanceType")
     private List<ReportAssistance> reportAssistances;
 

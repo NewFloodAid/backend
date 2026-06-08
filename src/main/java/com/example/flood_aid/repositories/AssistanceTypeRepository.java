@@ -11,4 +11,10 @@ public interface AssistanceTypeRepository extends JpaRepository<AssistanceType, 
     List<AssistanceType> findByIsActiveTrueOrderByIdAsc();
 
     List<AssistanceType> findAllByOrderByIdAsc();
+
+    List<AssistanceType> findByDistrictIdAndIsActiveTrueOrderByIdAsc(Long districtId);
+
+    List<AssistanceType> findByDistrictIdOrderByIdAsc(Long districtId);
+
+    List<AssistanceType> findByDistrictIsNullOrderByIdAsc();
 }

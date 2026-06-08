@@ -39,10 +39,9 @@ public class ReportController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Report> createReport(
-            @RequestParam("report") String reportString,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files) {
-        Gson gson = new Gson();
-        Report report = gson.fromJson(reportString, Report.class);
+            @RequestPart("report") @jakarta.validation.Valid com.example.flood_aid.models.dto.ReportCreateRequestDto reportDto,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        Report report = reportDto.toEntity();
         applyLiffIdentityToReport(report);
 
         Map<String, List<MultipartFile>> imageParams = Map.of(
@@ -54,10 +53,9 @@ public class ReportController {
 
     @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Report> updateReport(
-            @RequestParam("report") String reportString,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files) {
-        Gson gson = new Gson();
-        Report report = gson.fromJson(reportString, Report.class);
+            @RequestPart("report") @jakarta.validation.Valid com.example.flood_aid.models.dto.ReportUpdateRequestDto reportDto,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        Report report = reportDto.toEntity();
         applyLiffIdentityToReport(report);
         Map<String, List<MultipartFile>> imageParams = Map.of(
                 "files", files != null ? files : List.of());
@@ -78,13 +76,17 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) Long assistanceTypeId,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long districtId) {
         JwtPrincipal principal = getCurrentJwtPrincipal();
         String resolvedSourceApp = resolveSourceApp(sourceApp, principal);
         UUID currentUserId = resolveCurrentLiffUserId(principal);
         Timestamp startTimestamp = resolveStartTimestamp(startDate);
         Timestamp endTimestamp = resolveEndTimestamp(endDate);
         String resolvedSubdistrict = firstNonBlank(subdistrict, subDistrict);
+
+        // District-based filtering for admins
+        List<Long> districtIds = resolveDistrictFilter(principal, districtId);
 
         List<Report> reports = reportService.filterReports(
                 resolvedSubdistrict,
@@ -97,7 +99,8 @@ public class ReportController {
                 resolvedSourceApp,
                 userId,
                 assistanceTypeId,
-                keyword);
+                keyword,
+                districtIds);
 
         applyLiffAnonymization(resolvedSourceApp, currentUserId, reports);
         return ResponseEntity.ok(reports);
@@ -117,6 +120,7 @@ public class ReportController {
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) Long assistanceTypeId,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long districtId,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "8") Integer size) {
         JwtPrincipal principal = getCurrentJwtPrincipal();
@@ -128,6 +132,10 @@ public class ReportController {
         Timestamp startTimestamp = resolveStartTimestamp(startDate);
         Timestamp endTimestamp = resolveEndTimestamp(endDate);
         String resolvedSubdistrict = firstNonBlank(subdistrict, subDistrict);
+
+        // District-based filtering for admins
+        List<Long> districtIds = resolveDistrictFilter(principal, districtId);
+
         Page<Report> reportPage = reportService.filterReportsPaged(
                 resolvedSubdistrict,
                 district,
@@ -140,6 +148,7 @@ public class ReportController {
                 userId,
                 assistanceTypeId,
                 keyword,
+                districtIds,
                 safePage,
                 safeSize);
 
@@ -276,5 +285,34 @@ public class ReportController {
             return sourceAppHeader;
         }
         return principal != null ? principal.appType() : null;
+    }
+
+    /**
+     * Resolves district filter based on admin role:
+     * - DISTRICT_ADMIN: restricted to their assigned districts only
+     * - SUPER_ADMIN: can filter by specific districtId or see all
+     * - LIFF users: no district filtering (they see their own reports)
+     */
+    private List<Long> resolveDistrictFilter(JwtPrincipal principal, Long districtId) {
+        if (principal == null || principal.isLiffUser()) {
+            return null; // No district filtering for LIFF users
+        }
+        if (principal.isDistrictAdmin()) {
+            // District admin: must filter by their assigned districts
+            List<Long> allowedDistricts = principal.districtIds();
+            if (districtId != null) {
+                // If specific district requested, validate it's in their allowed list
+                if (allowedDistricts.contains(districtId)) {
+                    return List.of(districtId);
+                }
+                return List.of(-1L); // Return impossible ID to return empty results
+            }
+            return allowedDistricts;
+        }
+        if (principal.isSuperAdmin() && districtId != null) {
+            // Super admin with specific district filter
+            return List.of(districtId);
+        }
+        return null; // Super admin with no filter sees all
     }
 }

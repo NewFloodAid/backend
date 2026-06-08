@@ -18,13 +18,13 @@ public class AssistanceTypeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AssistanceType>> getAssistanceTypes() {
-        return ResponseEntity.ok(assistanceTypeService.getAssistanceTypes());
+    public ResponseEntity<List<AssistanceType>> getAssistanceTypes(@RequestParam(required = false) Long districtId) {
+        return ResponseEntity.ok(assistanceTypeService.getAssistanceTypes(districtId));
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<AssistanceType>> getAllAssistanceTypes() {
-        return ResponseEntity.ok(assistanceTypeService.getAllAssistanceTypes());
+    public ResponseEntity<List<AssistanceType>> getAllAssistanceTypes(@RequestParam(required = false) Long districtId) {
+        return ResponseEntity.ok(assistanceTypeService.getAllAssistanceTypes(districtId));
     }
 
     @PostMapping

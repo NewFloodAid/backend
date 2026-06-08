@@ -61,8 +61,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     }
 
                     if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                        JwtPrincipal principal = new JwtPrincipal(username, appType, userId);
-                        setAuthentication(principal, resolveRole(appType), request);
+                        String role = jwtUtil.extractRole(token);
+                        Long adminId = jwtUtil.extractAdminId(token);
+                        List<Long> districtIds = jwtUtil.extractDistrictIds(token);
+                        JwtPrincipal principal = new JwtPrincipal(username, appType, userId, role, adminId, districtIds);
+                        setAuthentication(principal, resolveRole(appType, role), request);
                     }
                 }
             } catch (JwtException | IllegalArgumentException e) {
@@ -96,8 +99,17 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         return false;
     }
 
-    private String resolveRole(String appType) {
-        return "LIFF".equalsIgnoreCase(appType) ? "USER" : "WEB_USER";
+    private String resolveRole(String appType, String adminRole) {
+        if ("LIFF".equalsIgnoreCase(appType)) {
+            return "USER";
+        }
+        if ("SUPER_ADMIN".equals(adminRole)) {
+            return "SUPER_ADMIN";
+        }
+        if ("DISTRICT_ADMIN".equals(adminRole)) {
+            return "DISTRICT_ADMIN";
+        }
+        return "WEB_USER";
     }
 
     private UUID extractUuidClaim(Claims claims, String claimName) {

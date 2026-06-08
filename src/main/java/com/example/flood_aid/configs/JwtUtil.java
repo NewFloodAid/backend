@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -66,11 +67,66 @@ public class JwtUtil {
                 .getBody();
     }
 
+    // New overload for admin tokens with role and district info
+    public String generateToken(String username, String appType, Long adminId, String role, List<Long> districtIds) {
+        JwtBuilder builder = Jwts.builder()
+                .setSubject(username)
+                .claim("appType", appType)
+                .claim("adminId", adminId)
+                .claim("role", role)
+                .claim("districtIds", districtIds)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime));
+
+        return builder.signWith(secretKey, SignatureAlgorithm.HS256).compact();
+    }
+
+    public String generateRefreshToken(String username, Long adminId) {
+        long refreshExpirationTime = 7 * 24 * 60 * 60 * 1000L; // 7 days
+        return Jwts.builder()
+                .setSubject(username)
+                .claim("adminId", adminId)
+                .claim("tokenType", "refresh")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationTime))
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
+    }
+
+    public Long extractAdminId(String token) {
+        Object adminId = extractAllClaims(token).get("adminId");
+        if (adminId == null) return null;
+        return ((Number) adminId).longValue();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Long> extractDistrictIds(String token) {
+        Object districtIds = extractAllClaims(token).get("districtIds");
+        if (districtIds == null) return List.of();
+        return ((List<Number>) districtIds).stream()
+                .map(Number::longValue)
+                .toList();
+    }
+
+    public String extractTokenType(String token) {
+        return extractAllClaims(token).get("tokenType", String.class);
+    }
+
     public boolean validateToken(String token) {
         Claims claims = extractAllClaims(token);
-        return claims.getSubject() != null
-                && claims.get("appType", String.class) != null
-                && !isTokenExpired(claims);
+        if (claims.getSubject() == null || isTokenExpired(claims)) {
+            return false;
+        }
+        // Refresh tokens don't have appType, so only require it for access tokens
+        String tokenType = claims.get("tokenType", String.class);
+        if ("refresh".equals(tokenType)) {
+            return true;
+        }
+        return claims.get("appType", String.class) != null;
     }
 
     public boolean validateToken(String token, String username, String appType) {
