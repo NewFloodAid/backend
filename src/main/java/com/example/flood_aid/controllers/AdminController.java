@@ -97,6 +97,18 @@ public class AdminController {
         }
     }
 
+    @DeleteMapping("/admins/{id}/permanent")
+    public ResponseEntity<?> deleteAdmin(@PathVariable Long id, HttpServletRequest httpRequest) {
+        JwtPrincipal principal = getCurrentJwtPrincipal();
+        try {
+            adminService.deleteAdmin(id);
+            auditLogService.log(principal.adminId(), "DELETE", "ADMIN", id, httpRequest.getRemoteAddr());
+            return ResponseEntity.ok(Map.of("message", "Admin deleted permanently"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @GetMapping("/audit-logs")
     public ResponseEntity<?> getAuditLogs(
             @RequestParam(defaultValue = "0") int page,

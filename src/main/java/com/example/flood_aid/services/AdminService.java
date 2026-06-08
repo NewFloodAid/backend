@@ -5,6 +5,8 @@ import com.example.flood_aid.models.dto.auth.CreateAdminRequest;
 import com.example.flood_aid.models.dto.auth.UpdateAdminRequest;
 import com.example.flood_aid.repositories.AdminDistrictRepository;
 import com.example.flood_aid.repositories.AdminRepository;
+import com.example.flood_aid.repositories.PasswordResetTokenRepository;
+import com.example.flood_aid.repositories.RefreshTokenRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -22,6 +24,8 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
     private final AdminDistrictRepository adminDistrictRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -147,6 +151,20 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Admin not found with ID: " + adminId));
         admin.setIsActive(false);
         adminRepository.save(admin);
+    }
+
+    @Transactional
+    public void deleteAdmin(Long adminId) {
+        Admin admin = adminRepository.findById(adminId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin not found with ID: " + adminId));
+        if (admin.getRole() == AdminRole.SUPER_ADMIN) {
+            throw new IllegalArgumentException("Cannot delete a Super Admin account");
+        }
+        // Clean up all FK-referenced records first
+        passwordResetTokenRepository.deleteByAdminId(adminId);
+        refreshTokenRepository.deleteByAdminId(adminId);
+        adminDistrictRepository.deleteByAdminId(adminId);
+        adminRepository.delete(admin);
     }
 
     @Transactional
