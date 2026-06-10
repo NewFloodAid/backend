@@ -187,8 +187,11 @@ public final class ReportSpecifications {
 
     private static Specification<Report> withDistrictIds(List<Long> districtIds) {
         return (root, query, criteriaBuilder) -> {
-            if (districtIds == null || districtIds.isEmpty()) {
-                return criteriaBuilder.conjunction();
+            if (districtIds == null) {
+                return criteriaBuilder.conjunction(); // No district filter (Super Admin / LIFF)
+            }
+            if (districtIds.isEmpty()) {
+                return criteriaBuilder.disjunction(); // Empty list → match nothing
             }
             return root.get("district").get("id").in(districtIds);
         };

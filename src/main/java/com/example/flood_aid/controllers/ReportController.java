@@ -300,6 +300,10 @@ public class ReportController {
         if (principal.isDistrictAdmin()) {
             // District admin: must filter by their assigned districts
             List<Long> allowedDistricts = principal.districtIds();
+            if (allowedDistricts == null || allowedDistricts.isEmpty()) {
+                // Admin has no districts assigned — show nothing
+                return List.of(-1L);
+            }
             if (districtId != null) {
                 // If specific district requested, validate it's in their allowed list
                 if (allowedDistricts.contains(districtId)) {

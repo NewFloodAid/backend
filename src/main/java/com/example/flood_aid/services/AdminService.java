@@ -87,6 +87,11 @@ public class AdminService {
         if (request.getEmail() != null && adminRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists");
         }
+        // Prevent creating SUPER_ADMIN accounts
+        AdminRole role = AdminRole.fromString(request.getRole());
+        if (role == AdminRole.SUPER_ADMIN) {
+            throw new IllegalArgumentException("Cannot create a Super Admin account");
+        }
 
         Admin admin = Admin.builder()
                 .username(request.getUsername())
@@ -94,7 +99,7 @@ public class AdminService {
                 .passwordHash(hashPassword(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
-                .role(AdminRole.fromString(request.getRole()))
+                .role(role)
                 .province(request.getProvince())
                 .isActive(true)
                 .createdBy(createdByAdminId)
@@ -125,7 +130,11 @@ public class AdminService {
             admin.setPhone(request.getPhone());
         }
         if (request.getRole() != null) {
-            admin.setRole(AdminRole.fromString(request.getRole()));
+            AdminRole newRole = AdminRole.fromString(request.getRole());
+            if (newRole == AdminRole.SUPER_ADMIN) {
+                throw new IllegalArgumentException("Cannot promote to Super Admin");
+            }
+            admin.setRole(newRole);
         }
         if (request.getIsActive() != null) {
             admin.setIsActive(request.getIsActive());
