@@ -17,9 +17,11 @@ LABEL maintainer="flood-aid-team"
 
 WORKDIR /app
 
-# Copy the compiled JAR file (assuming only one JAR is generated)
+# Copy the compiled JAR file
 COPY --from=build /app/target/*.jar /app/onspot-app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/onspot-app.jar"]
+# Use SerialGC for low-memory environments (Render free tier = 512MB)
+# PORT is provided by Render at runtime
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-XX:+UseSerialGC", "-Xss256k", "-jar", "/app/onspot-app.jar"]

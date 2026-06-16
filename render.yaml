@@ -1,0 +1,53 @@
+# ==========================================
+# Render Blueprint — ONSPOT Backend
+# ==========================================
+# This file lets Render auto-detect your services.
+# Connect your GitHub repo and Render will read this file.
+# ==========================================
+
+services:
+  - type: web
+    name: onspot-backend
+    runtime: docker
+    region: singapore
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: onspot-db
+          property: connectionString
+          # Render gives a postgres:// URL, Spring needs jdbc:postgresql://
+          # We'll handle this in application-prod.properties
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: onspot-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: onspot-db
+          property: password
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false  # You'll set this manually in Render dashboard
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ID
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value
+      - key: JWT_EXPIRATION_MS
+        value: "3600000"
+      - key: JAVA_OPTS
+        value: "-XX:MaxRAMPercentage=75.0 -XX:+UseSerialGC -Xss256k"
+    healthCheckPath: /api
+
+databases:
+  - name: onspot-db
+    plan: free
+    region: singapore
+    databaseName: onspot_db
+    user: onspot_user
