@@ -15,12 +15,18 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SPRING_DATASOURCE_URL
+      - key: DB_HOST
         fromDatabase:
           name: onspot-db
-          property: connectionString
-          # Render gives a postgres:// URL, Spring needs jdbc:postgresql://
-          # We'll handle this in application-prod.properties
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: onspot-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: onspot-db
+          property: database
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: onspot-db
